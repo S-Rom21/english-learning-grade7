@@ -18,3 +18,5 @@ No account, paid service, AI API or server-side database is required. Session re
 ## Deployment
 
 The static site is served from the repository root via GitHub Pages. The deployment workflow is in .github/workflows/pages.yml.
+
+Deployment check: Pages build is managed by the GitHub Actions workflow in this repository.
