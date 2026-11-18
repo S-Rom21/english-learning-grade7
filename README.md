@@ -7,13 +7,16 @@ Free browser-based English practice for a Grade 7 learner and a Samsung/Android 
 - 30-minute sessions on Monday, Wednesday, Friday and Sunday
 - All seven areas in every session: Vocabulary, Grammar, Reading, Listening, Writing, Translation and Viewing
 - 784 vocabulary entries across learned textbook vocabulary, additional textbook vocabulary, Grade 7 core vocabulary and extension vocabulary
+- Schoolbook pages 206–213 are pre-enabled; additional pages 214–229 can be enabled one by one before a session. Once enabled, a page cannot be disabled. Vocabulary from newly enabled pages is included from the next session
 - New textbook vocabulary is introduced progressively; difficult vocabulary is scheduled for later review
 - An information button on each task opens a short explanation or learning hint
 - Each learning area has up to three answer-check attempts; wrong sub-tasks are identified individually and solutions are revealed after the third unsuccessful check
 - Hint use is recorded as support and excluded from the unassisted first-attempt score
 - First-attempt performance and final corrected result are reported separately
-- Mistakes and support needs can be scheduled for later practice; exercise variants and option order rotate
-- Viewing uses a realistic photo scene; Writing and Viewing include self-review checklists and are not presented as automatically AI-graded
+- Exercise variants rotate independently across Grammar, Reading, Listening, Writing, Translation and Viewing. The pools contain eight task variants per area and nine Viewing scenes
+- Incorrect first checks or help use schedule the affected area for review after three days; the saved task variant is prioritized on the next eligible training day
+- Vocabulary is rotated through the set of enabled textbook pages with due vocabulary reviewed first
+- Viewing uses a rotating pool of nine realistic photo scenes; Writing and Viewing include self-review checklists and are not presented as automatically AI-graded
 - New sessions always run independently; the start page has no guided-session choice. Historical accompanied sessions remain excluded from the individual progress dashboard
 - Answers are saved locally while a session is in progress; unfinished sessions can be resumed after reopening the browser
 - PDF report via the tablet print dialog and detailed CSV export for Excel
