@@ -50,11 +50,16 @@ function getVocabRotationState(){
  const saved=readJSON(VOCAB_ROTATION_KEY,null);
  if(saved&&Array.isArray(saved.seen))return saved;
  const seen=new Set();
- getHistory().forEach(session=>(session.answers?.Vocabulary?.items||[]).forEach(item=>{
-  const label=String(item.label||'');
-  const word=WORDS.find(w=>label.startsWith(w.en+' – Bedeutung'));
-  if(word)seen.add(word.en);
- }));
+ const history=getHistory();
+ for(const session of history){
+  const sectionAnswers=session.answers&&session.answers.Vocabulary;
+  const items=sectionAnswers&&Array.isArray(sectionAnswers.items)?sectionAnswers.items:[];
+  for(const item of items){
+   const label=String(item.label||'');
+   const word=WORDS.find(w=>label.startsWith(w.en+' – Bedeutung'));
+   if(word)seen.add(word.en);
+  }
+ }
  return {seen:[...seen],cycle:0};
 }
 
