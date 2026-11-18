@@ -45,7 +45,19 @@ function getSchoolPage(){const n=Number(readJSON(SCHOOL_PAGE_KEY,SCHOOLBOOK_UNLO
 function unlockSchoolPage(page){const next=Math.max(getSchoolPage(),Math.min(SCHOOLBOOK_LAST_PAGE,Number(page)||SCHOOLBOOK_UNLOCK_DEFAULT));localStorage.setItem(SCHOOL_PAGE_KEY,String(next));renderSchoolPageChoices();$('availability').textContent='Schulbuchwortschatz freigegeben bis Seite '+next+'. Die neuen Vokabeln werden ab der nächsten Trainingseinheit berücksichtigt.';}
 function renderSchoolPageChoices(){const current=getSchoolPage(),el=$('schoolPageChoices');if(!el)return;$('schoolPageCurrent').textContent=current;$('schoolPageStatus').textContent=current===229?'Alle Schulbuchseiten 206–229 sind freigegeben.':'Freigegeben: Seiten 206–'+current+'. Die Freigabe kann nur erweitert, nicht zurückgenommen werden.';el.innerHTML=Array.from({length:16},(_,i)=>214+i).map(p=>{const count=WORDS.filter(w=>w.page===p).length,ready=p<=current;return '<button type="button" class="'+(ready?'secondary':'tertiary')+'" data-unlock-page="'+p+'" '+(ready?'disabled':'')+'>'+(ready?'✓ ':'＋ ')+'Seite '+p+' · '+count+' Wörter</button>'}).join('');}
 function dueDateFrom(date,days=3){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+days);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
-function dueItems(items){return (items||[]).filter(x=>!x.dueDate||x.dueDate<=dateKey);}
+function dueItems(items){return (items||[]).filter(x=>(x.dueDate|| (x.lastMiss?dueDateFrom(x.lastMiss,3):dateKey))<=dateKey);}
+function getVocabRotationState(){
+ const saved=readJSON(VOCAB_ROTATION_KEY,null);
+ if(saved&&Array.isArray(saved.seen))return saved;
+ const seen=new Set();
+ getHistory().forEach(session=>(session.answers?.Vocabulary?.items||[]).forEach(item=>{
+  const label=String(item.label||'');
+  const word=WORDS.find(w=>label.startsWith(w.en+' – Bedeutung'));
+  if(word)seen.add(word.en);
+ }));
+ return {seen:[...seen],cycle:0};
+}
+
 
 const VIEWING_STATE_KEY='englishTrainingViewingState';
 const VIEWING_SCENES=[
@@ -55,7 +67,7 @@ const VIEWING_SCENES=[
  {id:'lake',title:'A day by the lake',src:'https://images.pexels.com/photos/9974362/pexels-photo-9974362.jpeg?cs=srgb&dl=pexels-ron-lach-9974362.jpg&fm=jpg',alt:'Two teenagers are sitting on a wooden pier beside a lake with a dog. Backpacks, a sailboat and green hills can be seen.',caption:'Look carefully at the whole photo. Notice the people, the dog and the lake.',credit:'Ron Lach',page:'https://www.pexels.com/photo/friend-having-a-picnic-beside-a-lake-9974362/',help:'Look at the teenagers, the dog and the water. Useful words: lake, pier, dog, backpack, sailboat, hills.',task:'Describe the photo in at least three English sentences. Mention the people, the dog and at least two details around the lake.'},
  {id:'kitchen',title:'Cooking at home',src:'https://images.pexels.com/photos/7469438/pexels-photo-7469438.jpeg?cs=srgb&dl=pexels-meruyert-gonullu-7469438.jpg&fm=jpg',alt:'A teenager and an adult are preparing food together in a bright kitchen. They are cutting vegetables on a board and cooking at the counter.',caption:'Look carefully at the whole photo. Notice the people, the food and the kitchen.',credit:'Meruyert Gonullu',page:'https://www.pexels.com/photo/a-family-preparing-food-together-7469438/',help:'Look at the chopping board and the ingredients. Useful words: vegetables, chopping board, knife, pan, apron, kitchen counter.',task:'Describe the photo in at least three English sentences. Explain what the people are doing and include two details from the kitchen.'},
  {id:'study',title:'Studying together',src:'https://images.pexels.com/photos/5306450/pexels-photo-5306450.jpeg?cs=srgb&dl=pexels-ai25studioai-5306450.jpg&fm=jpg',alt:'A group of teenagers are sitting together in a park, reading books and studying. Other people are relaxing on the grass in the background.',caption:'Look carefully at the whole photo. Notice the students, their books and the park.',credit:'AI25 Studio',page:'https://www.pexels.com/photo/students-doing-their-classwork-together-5306450/',help:'Look at the books and the way the teenagers are sitting together. Useful words: study, book, notebook, read, discuss, backpack.',task:'Describe the photo in at least three English sentences. Say what the teenagers are doing and include at least two background details.'},
- {id:'citywalk',title:'A walk with friends',src:'https://images.pexels.com/photos/6140380/pexels-photo-6140380.jpeg?cs=srgb&dl=pexels-william-fortunato-6140380.jpg&fm=jpg',alt:'A group of young friends are walking and talking in a park while holding takeaway coffee cups.',caption:'Look carefully at the friends, what they are holding and the park around them.',credit:'William Fortunato',page:'https://www.pexels.com/photo/multiracial-young-people-chatting-while-drinking-coffee-to-go-during-walk-in-park-6140380/',help:'Look at the friends as they walk and talk. Useful words: takeaway cup, coffee, park path, trees, backpack, conversation.',task:'Describe the photo in at least three English sentences. Say what the friends are doing, what they are holding and include two details about the park.'}},
+ {id:'citywalk',title:'A walk with friends',src:'https://images.pexels.com/photos/6140380/pexels-photo-6140380.jpeg?cs=srgb&dl=pexels-william-fortunato-6140380.jpg&fm=jpg',alt:'A group of young friends are walking and talking in a park while holding takeaway coffee cups.',caption:'Look carefully at the friends, what they are holding and the park around them.',credit:'William Fortunato',page:'https://www.pexels.com/photo/multiracial-young-people-chatting-while-drinking-coffee-to-go-during-walk-in-park-6140380/',help:'Look at the friends as they walk and talk. Useful words: takeaway cup, coffee, park path, trees, backpack, conversation.',task:'Describe the photo in at least three English sentences. Say what the friends are doing, what they are holding and include two details about the park.'},
  {id:'friends',title:'Meeting friends',src:'https://images.pexels.com/photos/6140384/pexels-photo-6140384.jpeg?cs=srgb&dl=pexels-william-fortunato-6140384.jpg&fm=jpg',alt:'Three friends are sitting together on a low wall in a sunny park. They are smiling and talking.',caption:'Look carefully at the whole photo. Notice the friends and the place where they are meeting.',credit:'William Fortunato',page:'https://www.pexels.com/photo/young-diverse-teenagers-having-lunch-in-outdoor-cafe-6140384/',help:'Look at the three friends and their expressions. Useful words: friends, talk, smile, sit, wall, park, trees.',task:'Describe the photo in at least three English sentences. Say what the friends are doing and include two details about their surroundings.'},
  {id:'seaside',title:'At the seaside',src:'https://images.pexels.com/photos/10494941/pexels-photo-10494941.jpeg?cs=srgb&dl=pexels-ron-lach-10494941.jpg&fm=jpg',alt:'Two people are walking along a seaside promenade. The beach, sea, palm trees and other visitors can be seen in the background.',caption:'Look carefully at the whole photo. Notice the people, the beach and the sea.',credit:'Ron Lach',page:'https://www.pexels.com/photo/teenagers-running-towards-sea-10494941/',help:'Look at the people by the coast and the things around them. Useful words: beach, sea, coast, palm tree, promenade, visitor.',task:'Describe the photo in at least three English sentences. Say what the people are doing and include at least two details from the seaside.'}
 ];
@@ -87,13 +99,13 @@ function vocabPool(){
  const page=getSchoolPage(),eligible=WORDS.filter(w=>(w.page&&w.page<=page)||w.pool==='grade7'||w.pool==='extension');
  const queue=dueItems(getReviewQueue()),reviewWords=[];
  for(const q of queue){const word=WORDS.find(w=>w.en===q.en);if(word&&eligible.some(x=>x.en===word.en)&&!reviewWords.some(x=>x.en===word.en)){reviewWords.push(word);if(reviewWords.length===2)break}}
- const rotation=readJSON(VOCAB_ROTATION_KEY,{seen:[],cycle:0});let seen=Array.isArray(rotation.seen)?rotation.seen:[];
+ const rotation=getVocabRotationState();let seen=Array.isArray(rotation.seen)?rotation.seen:[];
  let freshPool=eligible.filter(w=>!seen.includes(w.en)&&!reviewWords.some(x=>x.en===w.en)).sort((a,b)=>(b.page||0)-(a.page||0));
  if(!freshPool.length){seen=[];freshPool=[...eligible].sort((a,b)=>(b.page||0)-(a.page||0));}
  const fresh=freshPool.slice(0,Math.max(0,5-reviewWords.length));
  return [...reviewWords.map(word=>({word,isReview:true})),...fresh.map(word=>({word,isReview:false}))].map(x=>({word:x.word,isReview:x.isReview,options:shuffle([x.word,...shuffle(eligible.filter(w=>w.en!==x.word.en)).slice(0,3)])}));
 }
-function rememberVocabulary(){if(!currentSession?.vocab?.length)return;const state=readJSON(VOCAB_ROTATION_KEY,{seen:[],cycle:0}),seen=new Set(Array.isArray(state.seen)?state.seen:[]);currentSession.vocab.filter(x=>!x.isReview).forEach(x=>seen.add(x.word.en));const eligible=WORDS.filter(w=>(w.page&&w.page<=getSchoolPage())||w.pool==='grade7'||w.pool==='extension');const complete=eligible.length>0&&eligible.every(w=>seen.has(w.en));localStorage.setItem(VOCAB_ROTATION_KEY,JSON.stringify({seen:complete?[]:[...seen],cycle:(state.cycle||0)+(complete?1:0)}));}
+function rememberVocabulary(){if(!currentSession?.vocab?.length)return;const state=getVocabRotationState(),seen=new Set(Array.isArray(state.seen)?state.seen:[]);currentSession.vocab.filter(x=>!x.isReview).forEach(x=>seen.add(x.word.en));const eligible=WORDS.filter(w=>(w.page&&w.page<=getSchoolPage())||w.pool==='grade7'||w.pool==='extension');const complete=eligible.length>0&&eligible.every(w=>seen.has(w.en));localStorage.setItem(VOCAB_ROTATION_KEY,JSON.stringify({seen:complete?[]:[...seen],cycle:(state.cycle||0)+(complete?1:0)}));}
 
 
 function radio(name,items){return shuffle(items).map(([v,t])=>`<label class="choice"><input type="radio" name="${name}" value="${esc(v)}"> ${esc(t)}</label>`).join('')}
@@ -102,7 +114,7 @@ function sectionCard(title,sub,body){return `<section class="card section-card" 
 function selfChecks(prefix,labels){return `<div class="self-check">${labels.map((t,i)=>`<label><input type="checkbox" id="${prefix}-check-${i+1}"><span>${esc(t)}</span></label>`).join('')}</div>`}
 function generateSession(mode){
  const hist=getHistory(),due=dueItems(getWeakTopics());
- const nextVariant=hist.filter(x=>x.mode==='independent'&&x.areaStats).length%8;
+ const nextVariant=hist.length%8;
  const areaNames=['Grammar','Reading','Listening','Writing','Translation','Viewing'],sectionVariants={};
  for(const title of areaNames){const item=due.find(x=>x.title===title);sectionVariants[title]=item&&Number.isInteger(item.variant)?item.variant:nextVariant;}
  const viewingReview=due.find(x=>x.title==='Viewing');
@@ -112,7 +124,7 @@ function makeSections(){
  const vocab=currentSession.vocab;
  if(!currentSession.viewingScene)currentSession.viewingScene=chooseViewingScene();
  const viewScene=currentSession.viewingScene;
- const vocabHtml=vocab.map((x,i)=>unit('vocab'+i,`Wort ${i+1}: ${x.word.en}`,'Überlege zuerst, in welchem Zusammenhang du das englische Wort kennst. Wähle die passende deutsche Bedeutung. Mehrere ähnliche Wörter können verwirren. Beispiel: “eventually” bedeutet “schließlich”, nicht “eventuell”.',`<select id="vocab-${i}"><option value="">Choose the German meaning …</option>${x.options.map(o=>`<option value="${esc(o.en)}">${esc(o.de)}</option>`).join('')}</select><span class="word-note">${i<2?'Wiederholung / bisheriger Lernwortschatz':'Schulbuchwortschatz · schrittweise Einführung'} · ${esc(x.word.section||'')}</span>`)).join('');
+ const vocabHtml=vocab.map((x,i)=>unit('vocab'+i,`Wort ${i+1}: ${x.word.en}`,'Überlege zuerst, in welchem Zusammenhang du das englische Wort kennst. Wähle die passende deutsche Bedeutung. Mehrere ähnliche Wörter können verwirren. Beispiel: “eventually” bedeutet “schließlich”, nicht “eventuell”.',`<select id="vocab-${i}"><option value="">Choose the German meaning …</option>${x.options.map(o=>`<option value="${esc(o.en)}">${esc(o.de)}</option>`).join('')}</select><span class="word-note">${x.isReview?'Wiederholung nach Fehler / Hinweis':x.word.page?'Schulbuch · Seite '+x.word.page:x.word.pool==='grade7'?'Grundwortschatz':'Wortschatz Plus'} · ${esc(x.word.section||'')}</span>`)).join('');
  const grammarBanks=[[
   {id:'grammar1',label:'Satz 1',prompt:'Yesterday, we ___ (visit) our friends.',opts:[['visit','visit'],['visited','visited'],['visiting','visiting']],answer:'visited'},
   {id:'grammar2',label:'Satz 2',prompt:'She ___ (not / play) tennis last Sunday.',opts:[['didnt','didn’t play'],['notplayed','not played'],['doesnt','doesn’t play']],answer:'didnt'}],
