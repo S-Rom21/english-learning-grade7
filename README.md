@@ -2,7 +2,7 @@
 
 Free browser-based English practice for a Grade 7 learner and a Samsung/Android tablet.
 
-## Version 2 features
+## Version 2.1 features
 
 - 30-minute sessions on Monday, Wednesday, Friday and Sunday
 - All seven areas in every session: Vocabulary, Grammar, Reading, Listening, Writing, Translation and Viewing
@@ -13,8 +13,8 @@ Free browser-based English practice for a Grade 7 learner and a Samsung/Android 
 - Hint use is recorded as support and excluded from the unassisted first-attempt score
 - First-attempt performance and final corrected result are reported separately
 - Mistakes and support needs can be scheduled for later practice; exercise variants and option order rotate
-- Writing and Viewing include self-review checklists; the text itself is not presented as automatically AI-graded
-- Progress dashboard includes only sessions marked “Eigenständig”; accompanied sessions are stored but excluded
+- Viewing uses a realistic photo scene; Writing and Viewing include self-review checklists and are not presented as automatically AI-graded
+- New sessions always run independently; the start page has no guided-session choice. Historical accompanied sessions remain excluded from the individual progress dashboard
 - Answers are saved locally while a session is in progress; unfinished sessions can be resumed after reopening the browser
 - PDF report via the tablet print dialog and detailed CSV export for Excel
 
