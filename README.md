@@ -2,12 +2,12 @@
 
 Free browser-based English practice for a Grade 7 learner and a Samsung/Android tablet.
 
-## Version 2.3 features
+## Version 3.3 features
 
 - 30-minute sessions on Monday, Wednesday, Friday and Sunday
 - All seven areas in every session: Vocabulary, Grammar, Reading, Listening, Writing, Translation and Viewing
 - 784 vocabulary entries across learned textbook vocabulary, additional textbook vocabulary, Grade 7 core vocabulary and extension vocabulary
-- Schoolbook pages 206–213 are pre-enabled; additional pages 214–229 can be enabled one by one before a session. Once enabled, a page cannot be disabled. Vocabulary from newly enabled pages is included from the next session
+- Schoolbook pages 206–213 are pre-enabled; additional pages 214–229 can be enabled one by one before a session. Once enabled, a page cannot be disabled and disappears from the available-choice list. The report explicitly lists pages newly unlocked since the previous report in `newlyUnlockedSchoolPages`. This field is cleared only after the completed report is saved. Vocabulary from newly enabled pages is included from the next session. The configurable code default `SCHOOLBOOK_DEFAULT_UNLOCKED_PAGES` can be expanded after an emailed report is reviewed so a new release also retains the cumulative page state.
 - New textbook vocabulary is introduced progressively; difficult vocabulary is scheduled for later review
 - An information button on each task opens a short explanation or learning hint
 - Each learning area has up to three answer-check attempts; wrong sub-tasks are identified individually and solutions are revealed after the third unsuccessful check
