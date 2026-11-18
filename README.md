@@ -2,7 +2,7 @@
 
 Free browser-based English practice for a Grade 7 learner and a Samsung/Android tablet.
 
-## Version 2.1 features
+## Version 2.3 features
 
 - 30-minute sessions on Monday, Wednesday, Friday and Sunday
 - All seven areas in every session: Vocabulary, Grammar, Reading, Listening, Writing, Translation and Viewing
@@ -25,3 +25,7 @@ No paid service, AI API or server-side database is required. Answers, review que
 ## Deployment
 
 The static website is hosted on GitHub Pages. The deployment workflow is in `.github/workflows/pages.yml`.
+
+## Viewing photo rotation
+
+The Viewing exercise rotates through nine distinct everyday scenes (park, town walk, football, lake, kitchen, study, café, friends and seaside). A local browser record prevents a photo from reappearing until the scene pool has been used; the first photo of a new cycle is not the one used in the immediately preceding session. Photos are served from the Pexels CDN and photographer credits are shown beneath each image. Pexels states that its photos may be used for free on websites and that attribution is appreciated but not required.
