@@ -32,3 +32,8 @@ The static website is hosted on GitHub Pages. The deployment workflow is in `.gi
 ## Viewing photo rotation
 
 The Viewing exercise rotates through nine distinct everyday scenes (park, town walk, football, lake, kitchen, study, café, friends and seaside). A local browser record prevents a photo from reappearing until the scene pool has been used; the first photo of a new cycle is not the one used in the immediately preceding session. Photos are served from the Pexels CDN and photographer credits are shown beneath each image. Pexels states that its photos may be used for free on websites and that attribution is appreciated but not required.
+
+
+## Additional practice/test mode (v3.5)
+
+The separate “Zusätzlich üben / Test starten” button can be used on any day. It stores the run in the learning history with mode `practice`, but excludes it from the individual progress dashboard and does not add errors or hints to the regular review queues. The normal “Reguläres Training starten” button remains restricted to Monday, Wednesday, Friday and Sunday. Page unlocks made during a practice session remain saved and stay pending for the next regular report.
