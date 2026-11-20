@@ -152,7 +152,7 @@ function vocabPool(){
  const rotation=getVocabRotationState();let seen=Array.isArray(rotation.seen)?rotation.seen:[];
  let freshPool=eligible.filter(w=>!seen.includes(w.en)&&!reviewWords.some(x=>x.en===w.en)).sort((a,b)=>(b.page||0)-(a.page||0));
  if(!freshPool.length){seen=[];freshPool=[...eligible].sort((a,b)=>(b.page||0)-(a.page||0));}
- const fresh=freshPool.slice(0,Math.max(0,5-reviewWords.length));
+ const fresh=freshPool.slice(0,Math.max(0,15-reviewWords.length));
  return [...reviewWords.map(word=>({word,isReview:true})),...fresh.map(word=>({word,isReview:false}))].map(x=>({word:x.word,isReview:x.isReview,options:shuffle([x.word,...shuffle(eligible.filter(w=>w.en!==x.word.en)).slice(0,3)])}));
 }
 function rememberVocabulary(){if(!currentSession?.vocab?.length)return;const state=getVocabRotationState(),seen=new Set(Array.isArray(state.seen)?state.seen:[]);currentSession.vocab.filter(x=>!x.isReview).forEach(x=>seen.add(x.word.en));const pages=new Set(getUnlockedSchoolPages()),eligible=WORDS.filter(w=>(w.page&&pages.has(w.page))||w.pool==='grade7'||w.pool==='extension');const complete=eligible.length>0&&eligible.every(w=>seen.has(w.en));localStorage.setItem(VOCAB_ROTATION_KEY,JSON.stringify({seen:complete?[]:[...seen],cycle:(state.cycle||0)+(complete?1:0)}));}
@@ -175,25 +175,65 @@ function makeSections(){
  if(!currentSession.viewingScene)currentSession.viewingScene=chooseViewingScene();
  const viewScene=currentSession.viewingScene;
  const vocabHtml=vocab.map((x,i)=>unit('vocab'+i,`Wort ${i+1}: ${x.word.en}`,'Überlege zuerst, in welchem Zusammenhang du das englische Wort kennst. Wähle die passende deutsche Bedeutung. Mehrere ähnliche Wörter können verwirren. Beispiel: “eventually” bedeutet “schließlich”, nicht “eventuell”.',`<select id="vocab-${i}"><option value="">Choose the German meaning …</option>${x.options.map(o=>`<option value="${esc(o.en)}">${esc(o.de)}</option>`).join('')}</select><span class="word-note">${x.isReview?'Wiederholung nach Fehler / Hinweis':x.word.page?'Schulbuch · Seite '+x.word.page:x.word.pool==='grade7'?'Grundwortschatz':'Wortschatz Plus'} · ${esc(x.word.section||'')}</span>`)).join('');
- const grammarBanks=[[
-  {id:'grammar1',label:'Satz 1',prompt:'Yesterday, we ___ (visit) our friends.',opts:[['visit','visit'],['visited','visited'],['visiting','visiting']],answer:'visited'},
-  {id:'grammar2',label:'Satz 2',prompt:'She ___ (not / play) tennis last Sunday.',opts:[['didnt','didn’t play'],['notplayed','not played'],['doesnt','doesn’t play']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'Two days ago, we ___ (watch) a film.',opts:[['watch','watch'],['watched','watched'],['watching','watching']],answer:'watched'},
-  {id:'grammar2',label:'Satz 2',prompt:'He ___ (not / go) to school yesterday.',opts:[['didnt','didn’t go'],['doesnt','doesn’t go'],['notwent','not went']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'Last night, she ___ (cook) dinner.',opts:[['cooked','cooked'],['cook','cook'],['cooking','cooking']],answer:'cooked'},
-  {id:'grammar2',label:'Satz 2',prompt:'They ___ (not / play) football last weekend.',opts:[['didnt','didn’t play'],['notplayed','not played'],['doesnt','doesn’t play']],answer:'didnt'}]
-  [{id:'grammar1',label:'Satz 1',prompt:'Last weekend, my sister ___ (visit) our aunt.',opts:[['visited','visited'],['visit','visit'],['visiting','visiting']],answer:'visited'},
-  {id:'grammar2',label:'Satz 2',prompt:'We ___ (not / watch) TV yesterday.',opts:[['didnt','didn’t watch'],['notwatched','not watched'],['doesnt','doesn’t watch']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'Yesterday morning, I ___ (clean) my room.',opts:[['clean','clean'],['cleaned','cleaned'],['cleaning','cleaning']],answer:'cleaned'},
-  {id:'grammar2',label:'Satz 2',prompt:'He ___ (not / buy) a new book last week.',opts:[['didnt','didn’t buy'],['notbought','not bought'],['doesnt','doesn’t buy']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'On Saturday, they ___ (go) to the swimming pool.',opts:[['goed','goed'],['went','went'],['go','go']],answer:'went'},
-  {id:'grammar2',label:'Satz 2',prompt:'I ___ (not / see) my cousin last night.',opts:[['didnt','didn’t see'],['notsaw','not saw'],['doesnt','doesn’t see']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'Two weeks ago, we ___ (make) a cake.',opts:[['maked','maked'],['made','made'],['make','make']],answer:'made'},
-  {id:'grammar2',label:'Satz 2',prompt:'She ___ (not / finish) her homework yesterday.',opts:[['didnt','didn’t finish'],['notfinished','not finished'],['doesnt','doesn’t finish']],answer:'didnt'}],
-  [{id:'grammar1',label:'Satz 1',prompt:'Last year, my family ___ (travel) to Scotland.',opts:[['travel','travel'],['travelled','travelled'],['travelling','travelling']],answer:'travelled'},
-  {id:'grammar2',label:'Satz 2',prompt:'They ___ (not / take) the bus last Monday.',opts:[['didnt','didn’t take'],['nottook','not took'],['doesnt','doesn’t take']],answer:'didnt'}]
- ];
- const grammar=shuffle(grammarBanks[currentSession.sectionVariants?.Grammar ?? currentSession.variant]);
+ const grammarBanks=[
+[
+{id:'grammar1',label:'Satz 1',prompt:'Yesterday, we ___ (visit) our friends.',opts:[['visit','visit'],['visited','visited'],['visiting','visiting']],answer:'visited'},
+{id:'grammar2',label:'Satz 2',prompt:'She ___ (not / play) tennis last Sunday.',opts:[['didnt','didn’t play'],['notplayed','not played'],['doesnt','doesn’t play']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'My brother ___ (go) home after school yesterday.',opts:[['goed','goed'],['went','went'],['go','go']],answer:'went'},
+{id:'grammar4',label:'Satz 4',prompt:'We ___ (not / watch) TV last night.',opts:[['didnt','didn’t watch'],['notwatched','not watched'],['doesnt','doesn’t watch']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'They ___ (clean) the classroom after the lesson.',opts:[['clean','clean'],['cleaning','cleaning'],['cleaned','cleaned']],answer:'cleaned'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Two days ago, we ___ (watch) a film.',opts:[['watch','watch'],['watched','watched'],['watching','watching']],answer:'watched'},
+{id:'grammar2',label:'Satz 2',prompt:'He ___ (not / go) to school yesterday.',opts:[['didnt','didn’t go'],['doesnt','doesn’t go'],['notwent','not went']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'Mia ___ (buy) a new book last week.',opts:[['buyed','buyed'],['bought','bought'],['buys','buys']],answer:'bought'},
+{id:'grammar4',label:'Satz 4',prompt:'We ___ (not / have) lunch at school yesterday.',opts:[['didnt','didn’t have'],['not had','not had'],['doesnt','doesn’t have']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'The children ___ (play) in the park last Saturday.',opts:[['played','played'],['play','play'],['playing','playing']],answer:'played'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Last night, she ___ (cook) dinner.',opts:[['cooked','cooked'],['cook','cook'],['cooking','cooking']],answer:'cooked'},
+{id:'grammar2',label:'Satz 2',prompt:'They ___ (not / play) football last weekend.',opts:[['didnt','didn’t play'],['notplayed','not played'],['doesnt','doesn’t play']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'I ___ (write) an email yesterday.',opts:[['wrote','wrote'],['writed','writed'],['write','write']],answer:'wrote'},
+{id:'grammar4',label:'Satz 4',prompt:'We ___ (not / meet) our friends on Friday.',opts:[['didnt','didn’t meet'],['notmet','not met'],['doesnt','doesn’t meet']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'Tom ___ (drink) a glass of water after the game.',opts:[['drank','drank'],['drinked','drinked'],['drinks','drinks']],answer:'drank'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Last weekend, my sister ___ (visit) our aunt.',opts:[['visited','visited'],['visit','visit'],['visiting','visiting']],answer:'visited'},
+{id:'grammar2',label:'Satz 2',prompt:'We ___ (not / watch) TV yesterday.',opts:[['didnt','didn’t watch'],['notwatched','not watched'],['doesnt','doesn’t watch']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'I ___ (see) a rainbow after the rain.',opts:[['saw','saw'],['seed','seed'],['see','see']],answer:'saw'},
+{id:'grammar4',label:'Satz 4',prompt:'They ___ (not / take) the bus last Monday.',opts:[['didnt','didn’t take'],['nottook','not took'],['doesnt','doesn’t take']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'Sophie ___ (study) for her test last night.',opts:[['study','study'],['studying','studying'],['studied','studied']],answer:'studied'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Yesterday morning, I ___ (clean) my room.',opts:[['clean','clean'],['cleaned','cleaned'],['cleaning','cleaning']],answer:'cleaned'},
+{id:'grammar2',label:'Satz 2',prompt:'He ___ (not / buy) a new book last week.',opts:[['didnt','didn’t buy'],['notbought','not bought'],['doesnt','doesn’t buy']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'My parents ___ (go) to the market on Saturday.',opts:[['goed','goed'],['went','went'],['go','go']],answer:'went'},
+{id:'grammar4',label:'Satz 4',prompt:'I ___ (not / read) the newspaper yesterday.',opts:[['didnt','didn’t read'],['notread','not read'],['doesnt','doesn’t read']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'We ___ (help) our teacher after class.',opts:[['helped','helped'],['help','help'],['helping','helping']],answer:'helped'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'On Saturday, they ___ (go) to the swimming pool.',opts:[['goed','goed'],['went','went'],['go','go']],answer:'went'},
+{id:'grammar2',label:'Satz 2',prompt:'I ___ (not / see) my cousin last night.',opts:[['didnt','didn’t see'],['notsaw','not saw'],['doesnt','doesn’t see']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'Our class ___ (make) a poster last week.',opts:[['maked','maked'],['made','made'],['make','make']],answer:'made'},
+{id:'grammar4',label:'Satz 4',prompt:'She ___ (not / eat) breakfast yesterday.',opts:[['didnt','didn’t eat'],['noteaten','not eaten'],['doesnt','doesn’t eat']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'The boys ___ (swim) in the lake last summer.',opts:[['swam','swam'],['swimmed','swimmed'],['swim','swim']],answer:'swam'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Two weeks ago, we ___ (make) a cake.',opts:[['maked','maked'],['made','made'],['make','make']],answer:'made'},
+{id:'grammar2',label:'Satz 2',prompt:'She ___ (not / finish) her homework yesterday.',opts:[['didnt','didn’t finish'],['notfinished','not finished'],['doesnt','doesn’t finish']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'They ___ (travel) to Scotland last year.',opts:[['travel','travel'],['travelled','travelled'],['travelling','travelling']],answer:'travelled'},
+{id:'grammar4',label:'Satz 4',prompt:'He ___ (not / take) his umbrella yesterday.',opts:[['didnt','didn’t take'],['nottook','not took'],['doesnt','doesn’t take']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'I ___ (find) my keys under the table.',opts:[['finded','finded'],['found','found'],['find','find']],answer:'found'}
+],
+[
+{id:'grammar1',label:'Satz 1',prompt:'Last year, my family ___ (travel) to Scotland.',opts:[['travel','travel'],['travelled','travelled'],['travelling','travelling']],answer:'travelled'},
+{id:'grammar2',label:'Satz 2',prompt:'They ___ (not / take) the bus last Monday.',opts:[['didnt','didn’t take'],['nottook','not took'],['doesnt','doesn’t take']],answer:'didnt'},
+{id:'grammar3',label:'Satz 3',prompt:'My uncle ___ (visit) us last month.',opts:[['visit','visit'],['visiting','visiting'],['visited','visited']],answer:'visited'},
+{id:'grammar4',label:'Satz 4',prompt:'We ___ (not / call) our friends last night.',opts:[['didnt','didn’t call'],['notcalled','not called'],['doesnt','doesn’t call']],answer:'didnt'},
+{id:'grammar5',label:'Satz 5',prompt:'Yesterday, I ___ (eat) an apple after lunch.',opts:[['eated','eated'],['ate','ate'],['eat','eat']],answer:'ate'}
+]
+];
+  const grammar=shuffle(grammarBanks[currentSession.sectionVariants?.Grammar ?? currentSession.variant]);
  const grammarHtml=grammar.map(g=>unit(g.id,g.label,'Achte auf die Zeitangabe. Wörter wie “yesterday”, “last Sunday” und “two days ago” weisen auf die Vergangenheit hin. Bei Verneinungen steht “didn’t” vor der Grundform des Verbs.',`<p>${esc(g.prompt)}</p>${radio(g.id,g.opts)}`)).join('');
  const readingBanks=[
  {text:'Tom usually rides his bike to school. Last Monday, it rained, so his mother drove him. After school, he helped his friend with a science project. They finished the project before dinner.',qs:[{id:'reading1',label:'Frage 1',prompt:'How did Tom get to school last Monday?',opts:[['bike','By bike'],['car','By car'],['bus','By bus']],answer:'car',help:'Suche im Text nach “Last Monday”. Achte auf den Unterschied zwischen “usually” und dem, was an diesem Montag tatsächlich geschah.'},{id:'reading2',label:'Frage 2',prompt:'What did Tom do after school?',opts:[['football','He played football.'],['project','He helped with a science project.'],['homework','He did his homework alone.']],answer:'project',help:'Lies den Satz direkt nach “After school”. Er sagt genau, wobei Tom seinem Freund geholfen hat.'}]},
