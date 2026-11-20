@@ -37,3 +37,8 @@ The Viewing exercise rotates through nine distinct everyday scenes (park, town w
 ## Additional practice/test mode (v3.5)
 
 The separate “Zusätzlich üben / Test starten” button can be used on any day. It stores the run in the learning history with mode `practice`, but excludes it from the individual progress dashboard and does not add errors or hints to the regular review queues. The normal “Reguläres Training starten” button remains restricted to Monday, Wednesday, Friday and Sunday. Page unlocks made during a practice session remain saved and stay pending for the next regular report.
+
+
+## Isolated test instance
+
+A separate test copy is published at [https://s-rom21.github.io/english-learning-grade7/test/](https://s-rom21.github.io/english-learning-grade7/test/). It uses an independent localStorage namespace (`englishTrainingTest::`) and labels all reports and email drafts with `[TEST]`. Test reports include a structured JSON payload in the email body for validating the Gmail report-ingestion flow. Test messages must never change the production learner history or production website content.
