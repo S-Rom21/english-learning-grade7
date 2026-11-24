@@ -36,7 +36,7 @@ The Viewing exercise rotates through nine distinct everyday scenes (park, town w
 
 ## Additional practice/test mode (v3.5)
 
-The separate “Zusätzlich üben / Test starten” button can be used on any day. It stores the run in the learning history with mode `practice`, but excludes it from the individual progress dashboard and does not add errors or hints to the regular review queues. The normal “Reguläres Training starten” button remains restricted to Monday, Wednesday, Friday and Sunday. Page unlocks made during a practice session remain saved and stay pending for the next regular report.
+The separate “Zusätzlich üben / Test starten” button can be used on any day. Runs with mode `practice` count fully as regular individual training: they are included in the progress dashboard and add incorrect first-attempt answers or used hints to the normal vocabulary and topic review queues. They do not change the distinction between the first attempt and the final result. The normal “Reguläres Training starten” button remains restricted to Monday, Wednesday, Friday and Sunday. Page unlocks made during a practice session remain saved and stay pending for the next regular report.
 
 
 ## Isolated test instance
