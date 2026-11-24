@@ -34,9 +34,10 @@ The static website is hosted on GitHub Pages. The deployment workflow is in `.gi
 The Viewing exercise rotates through nine distinct everyday scenes (park, town walk, football, lake, kitchen, study, café, friends and seaside). A local browser record prevents a photo from reappearing until the scene pool has been used; the first photo of a new cycle is not the one used in the immediately preceding session. Photos are served from the Pexels CDN and photographer credits are shown beneath each image. Pexels states that its photos may be used for free on websites and that attribution is appreciated but not required.
 
 
-## Additional practice/test mode (v3.5)
+## Additional practice/test mode (introduced in v3.5; full progress inclusion finalized in v4.0)
 
 The separate “Zusätzlich üben / Test starten” button can be used on any day. Runs with mode `practice` count fully as regular individual training: they are included in the progress dashboard and add incorrect first-attempt answers or used hints to the normal vocabulary and topic review queues. They do not change the distinction between the first attempt and the final result. The normal “Reguläres Training starten” button remains restricted to Monday, Wednesday, Friday and Sunday. Page unlocks made during a practice session remain saved and stay pending for the next regular report.
+Runs with mode `practice` count fully as regular individual training, are included in the progress dashboard, and contribute errors and used hints to the regular vocabulary and topic review queues. This rule applies to both production and the isolated test application; technical test reports remain excluded.
 
 
 ## Isolated test instance
