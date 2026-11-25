@@ -625,6 +625,7 @@ function appendVocabularyNextButton(index){
  button.type='button';button.className='secondary';
  button.textContent=index+1<currentSession.vocab.length?'Nächste Vokabel':'Wortschatz abschließen';
  button.addEventListener('click',()=>{
+  if(index+1>=currentSession.vocab.length){finishVocabularySection();return;}
   currentSession.vocabTaskIndex=index+1;
   currentSession.vocabAudioPlayedIndex=null;
   saveDraft();
