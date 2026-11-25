@@ -13,6 +13,11 @@
       "project": "english-learning-grade7-test",
       "branch": "main",
       "output_directory": "test"
+    },
+    "github_pages": {
+      "workflow": "retired",
+      "workflow_file_removed": true,
+      "site_unpublish_required": true
     }
   },
   "note": "Hosting metadata only; no application files, learning rules, or production functionality changed."
