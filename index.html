@@ -20,6 +20,12 @@
 .settings-field{max-width:420px;margin:12px 0}
 .settings-field label{display:block;font-weight:700;margin-bottom:5px}
 #voiceStatus{padding:10px 12px;background:#f3f7fb;border:1px solid #dbe5ef;border-radius:10px}
+.vocab-flow-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#f3f7fb;border:1px solid #dbe5ef;border-radius:10px;margin-bottom:10px}
+.vocab-step-count{font-weight:800;color:var(--navy)}
+.vocab-step-direction{font-size:.85rem;color:var(--muted)}
+.vocab-task-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.vocab-task-actions button{flex:0 1 auto}
+.vocab-answer-state{font-size:.86rem;color:var(--muted);margin-top:8px}
 @media(max-width:540px){.card{padding:15px}.actions button{flex:1 1 100%}.task-heading{align-items:center}}
 @page{size:A4;margin:12mm 13mm 14mm}
 @media print{
@@ -304,7 +310,10 @@ function rememberVocabulary(){
 
 function radio(name,items){return shuffle(items).map(([v,t])=>`<label class="choice"><input type="radio" name="${name}" value="${esc(v)}"> ${esc(t)}</label>`).join('')}
 function unit(id,label,help,body){return `<div class="task-unit" id="unit-${id}" data-task-id="${id}"><div class="task-heading"><strong>${esc(label)}</strong><button type="button" class="info-btn" data-help-toggle aria-label="Hilfe zu ${esc(label)}" title="Hilfe anzeigen">i</button></div><div class="help-panel hidden">${esc(help)}<div class="muted">Der Hinweis hilft beim Verstehen, wird aber als verwendete Unterstützung im Bericht notiert.</div></div><div class="unit-body">${body}</div><div class="help-used hidden">Hinweis verwendet · zählt als Unterstützung</div><div class="item-feedback hidden"></div></div>`}
-function sectionCard(title,sub,body){return `<section class="card section-card" data-section="${title}"><div class="tag">${esc(sub)}</div><h2>${title}</h2>${body}<div class="section-result" id="result-${title}"></div><div class="attempt-box" id="attempt-${title}"><b>Überprüfungen: 0/3</b><div class="attempt-track"><span></span><span></span><span></span></div><div class="muted">Du hast drei Versuche pro Lernbereich.</div></div><div class="actions"><button type="button" data-check-section="${title}">Antworten überprüfen (0/3)</button><span class="muted" id="status-${title}"></span></div></section>`}
+function sectionCard(title,sub,body){
+ const controls=title==='Vocabulary'?'':'<div class="attempt-box" id="attempt-'+title+'"><b>Überprüfungen: 0/3</b><div class="attempt-track"><span></span><span></span><span></span></div><div class="muted">Du hast drei Versuche pro Lernbereich.</div></div><div class="actions"><button type="button" data-check-section="'+title+'">Antworten überprüfen (0/3)</button><span class="muted" id="status-'+title+'"></span></div>';
+ return '<section class="card section-card" data-section="'+title+'"><div class="tag">'+esc(sub)+'</div><h2>'+title+'</h2>'+body+'<div class="section-result" id="result-'+title+'"></div>'+controls+'</section>';
+}
 function selfChecks(prefix,labels){return `<div class="self-check">${labels.map((t,i)=>`<label><input type="checkbox" id="${prefix}-check-${i+1}"><span>${esc(t)}</span></label>`).join('')}</div>`}
 function generateSession(mode){
  const hist=getHistory(),due=dueItems(getWeakTopics());
@@ -315,25 +324,30 @@ function generateSession(mode){
  const vocabEnDe=vocabPool('en-de');
  const usedInThisSession=new Set(vocabEnDe.map(x=>x.word.en));
  const vocabDeEn=vocabPool('de-en',usedInThisSession);
- return {date:dateKey,mode,startedAt:Date.now(),sessionIndex:hist.length,vocab:[...vocabEnDe,...vocabDeEn],viewingScene:chooseViewingScene(viewingReview?.sceneId),attempts:{},results:{},hintUsed:{},firstResults:{},inputValues:{},variant:nextVariant,sectionVariants};
+ return {date:dateKey,mode,startedAt:Date.now(),sessionIndex:hist.length,vocab:[...vocabEnDe,...vocabDeEn],vocabTaskIndex:0,vocabTaskAttempts:{},vocabTaskResults:[],vocabTaskFirstResults:[],vocabTaskFirstHintIds:[],vocabCurrentAnswers:{},vocabAudioPlayedIndex:null,viewingScene:chooseViewingScene(viewingReview?.sceneId),attempts:{},results:{},hintUsed:{},firstResults:{},inputValues:{},variant:nextVariant,sectionVariants};
+}
+function ensureVocabularyFlowState(){
+ const total=currentSession?.vocab?.length||0;
+ if(!Array.isArray(currentSession.vocabTaskResults))currentSession.vocabTaskResults=Array(total).fill(null);
+ while(currentSession.vocabTaskResults.length<total)currentSession.vocabTaskResults.push(null);
+ if(!Array.isArray(currentSession.vocabTaskFirstResults))currentSession.vocabTaskFirstResults=Array(total).fill(null);
+ while(currentSession.vocabTaskFirstResults.length<total)currentSession.vocabTaskFirstResults.push(null);
+ if(!currentSession.vocabTaskAttempts||typeof currentSession.vocabTaskAttempts!=='object')currentSession.vocabTaskAttempts={};
+ if(!Array.isArray(currentSession.vocabTaskFirstHintIds))currentSession.vocabTaskFirstHintIds=[];
+ if(!currentSession.vocabCurrentAnswers||typeof currentSession.vocabCurrentAnswers!=='object'){
+  currentSession.vocabCurrentAnswers={};
+  (currentSession.inputValues||[]).forEach(x=>{if(x.id&&/^vocab-\\d+$/.test(x.id))currentSession.vocabCurrentAnswers[Number(x.id.slice(6))]=x.value||'';});
+ }
+ if(!Number.isInteger(currentSession.vocabTaskIndex)||currentSession.vocabTaskIndex<0)currentSession.vocabTaskIndex=0;
+ if(currentSession.vocabTaskIndex>total)currentSession.vocabTaskIndex=total;
 }
 function makeSections(){
+ ensureVocabularyFlowState();
  const vocab=currentSession.vocab;
  if(!currentSession.viewingScene)currentSession.viewingScene=chooseViewingScene();
  const viewScene=currentSession.viewingScene;
  let enToDeNo=0,deToEnNo=0;
- const vocabHtml=vocab.map((x,i)=>{
-  const direction=x.direction||'en-de',isEnToDe=direction==='en-de';
-  const number=isEnToDe?++enToDeNo:++deToEnNo;
-  const title=isEnToDe?'Englisch → Deutsch · Wort '+number+': '+x.word.en:'Deutsch → Englisch · Wort '+number+': '+x.word.de;
-  const options=x.options.map(o=>'<option value="'+esc(o.en)+'">'+esc(isEnToDe?o.de:o.en)+'</option>').join('');
-  const audio=isEnToDe?'<div class="audio-row"><button type="button" class="secondary" data-repeat-vocab="'+i+'" aria-label="Englisches Wort erneut anhören">🔊 Audio anhören / wiederholen</button><span class="audio-status" id="vocab-audio-status-'+i+'" role="status">Das Wort wird vorgespielt. Bitte zuerst vollständig anhören.</span></div>':'<p class="audio-note">Deutsch → Englisch · ohne Audioausgabe</p>';
-  const prompt=isEnToDe?'Choose the German meaning …':'Choose the English word …';
-  const choice='<select id="vocab-'+i+'"'+(isEnToDe?' disabled':'')+'><option value="">'+prompt+'</option>'+options+'</select>';
-  const note=(x.isReview?'Wiederholung nach Fehler / Hinweis':x.word.page?'Schulbuch · Seite '+x.word.page:x.word.pool==='grade7'?'Grundwortschatz':'Wortschatz Plus')+' · '+esc(x.word.section||'');
-  const wordPrompt=isEnToDe?'<div class="task-prompt" lang="en">'+esc(x.word.en)+'</div>':'<div class="task-prompt" lang="de">'+esc(x.word.de)+'</div>';
-  return unit('vocab'+i,title,isEnToDe?'Höre zuerst das englische Wort an und wähle anschließend die passende deutsche Bedeutung.':'Übersetze die deutsche Vorgabe ins Englische. Für diese Richtung wird kein Audio abgespielt.',wordPrompt+audio+choice+'<span class="word-note">'+note+'</span>');
- }).join('');
+ const vocabHtml='<div id="vocabTaskHost" aria-live="polite"></div>';
 
  const grammarBanks=[
 [
@@ -502,7 +516,7 @@ function makeSections(){
  ];
  const wb=writingBanks[currentSession.sectionVariants?.Writing ?? currentSession.variant];
  const sections=[
- {title:'Vocabulary',sub:'8 Minuten · 30 Wörter (15 je Richtung)',html:vocabHtml,items:()=>vocab.map((x,i)=>{const direction=x.direction||'en-de';return {id:'vocab'+i,direction,label:direction==='de-en'?x.word.de+' – Englisch':x.word.en+' – Bedeutung',correct:$('vocab-'+i).value===x.word.en,expected:direction==='de-en'?x.word.en:x.word.de,answer:$('vocab-'+i).selectedOptions[0]?.textContent||'Keine Auswahl',feedback:direction==='de-en'?x.word.de+' = '+x.word.en:x.word.en+' = '+x.word.de}}),ready:()=>vocab.every((x,i)=>$('vocab-'+i)?.value),open:false},
+ {title:'Vocabulary',sub:'8 Minuten · 30 Einzelaufgaben (15 je Richtung)',html:vocabHtml,items:()=>{ensureVocabularyFlowState();return currentSession.vocabTaskResults.filter(Boolean)},ready:()=>{ensureVocabularyFlowState();return currentSession.vocabTaskResults.length===vocab.length&&currentSession.vocabTaskResults.every(Boolean)},open:false},
  {title:'Grammar',sub:'4 Minuten · 5 Aufgaben',html:grammarHtml,items:()=>grammar.map(g=>({id:g.id,label:g.label,correct:document.querySelector(`input[name="${g.id}"]:checked`)?.value===g.answer,expected:g.opts.find(o=>o[0]===g.answer)?.[1],answer:document.querySelector(`input[name="${g.id}"]:checked`)?.parentElement?.textContent.trim()||'Keine Auswahl',feedback:g.prompt})),ready:()=>grammar.every(g=>document.querySelector(`input[name="${g.id}"]:checked`)),open:false},
  {title:'Reading',sub:'4 Minuten · 2–5 Fragen',html:readingHtml,items:()=>readingVisible().map(g=>({id:g.id,label:g.label,correct:document.querySelector(`input[name="${g.id}"]:checked`)?.value===g.answer,expected:g.opts.find(o=>o[0]===g.answer)?.[1],answer:document.querySelector(`input[name="${g.id}"]:checked`)?.parentElement?.textContent.trim()||'Keine Auswahl',feedback:g.prompt})),ready:()=>readingVisible().every(g=>document.querySelector(`input[name="${g.id}"]:checked`)),expandQuick:items=>{const elapsed=currentSession.readingStartedAt?Date.now()-currentSession.readingStartedAt:Infinity;if(currentSession.readingVisibleCount!==2||readingQuestions.length<5||elapsed>90000||!items.every(x=>x.correct))return false;currentSession.readingWarmupItems=items.map(x=>({...x}));currentSession.readingVisibleCount=5;$('result-Reading').insertAdjacentHTML('beforebegin',readingQuestions.slice(2,5).map(readingQuestionHtml).join(''));$('result-Reading').innerHTML='<div class="notice"><b>Schnell gelöst!</b> Die ersten zwei Fragen waren innerhalb von 90 Sekunden richtig. Drei weitere Fragen wurden hinzugefügt.</div>';markResults('Reading',items,1);return true;},open:false},
  {title:'Listening',sub:'4 Minuten · 3 Fragen',html:listeningHtml,items:()=>listeningQuestions.map(g=>({id:g.id,label:g.label,correct:document.querySelector(`input[name="${g.id}"]:checked`)?.value===g.answer,expected:g.opts.find(o=>o[0]===g.answer)?.[1],answer:document.querySelector(`input[name="${g.id}"]:checked`)?.parentElement?.textContent.trim()||'Keine Auswahl',feedback:g.prompt})),ready:()=>listeningQuestions.every(g=>document.querySelector(`input[name="${g.id}"]:checked`)),open:false},
@@ -528,15 +542,15 @@ function updateReviewQueue(items,attempt){
   const word=entry?.word,direction=x.direction||entry?.direction||'en-de';
   if(!word)return;
   const idx=q.findIndex(y=>y.en===word.en&&(y.direction||'en-de')===direction);
-  if(!x.correct||currentSession.hintUsed[x.id]){
+  if(!x.correct||x.firstCorrect===false||currentSession.hintUsed[x.id]){
    if(idx>=0){q[idx].misses=(q[idx].misses||0)+1;q[idx].lastMiss=dateKey;q[idx].dueDate=dueDateFrom(dateKey,3);q[idx].page=word.page||null}
    else q.push({en:word.en,direction,misses:1,lastMiss:dateKey,dueDate:dueDateFrom(dateKey,3),page:word.page||null});
   }else if(attempt===1&&!currentSession.hintUsed[x.id]&&idx>=0)q.splice(idx,1);
  });
  saveReviewQueue(q);
 }
-function updateWeakTopics(title,items,attempt){if(!isProgressSession(currentSession.mode)||attempt!==1)return;const node=document.querySelector(`[data-section="${title}"]`);const hasHint=!!(node&&node.querySelector('.help-used:not(.hidden)'));const needsReview=items.some(x=>!x.correct)||hasHint;const q=getWeakTopics();const idx=q.findIndex(x=>x.title===title);if(needsReview){const variant=currentSession.sectionVariants?.[title]??currentSession.variant;const sceneId=title==='Viewing'?currentSession.viewingScene?.id:null;if(idx>=0){q[idx].misses=(q[idx].misses||0)+1;q[idx].variant=variant;q[idx].sceneId=sceneId||q[idx].sceneId||null;q[idx].lastMiss=dateKey;q[idx].dueDate=dueDateFrom(dateKey,3)}else q.push({title,misses:1,variant,sceneId,lastMiss:dateKey,dueDate:dueDateFrom(dateKey,3)})}else if(idx>=0)q.splice(idx,1);saveWeakTopics(q)}
-function evaluateSection(title){const s=sections.find(x=>x.title===title);if(!s||currentSession.results[title])return;if(title==='Vocabulary'&&currentSession.vocab.some((x,i)=>(x.direction||'en-de')==='en-de'&&$('vocab-'+i)?.disabled)){alert('Bitte höre zuerst alle englischen Vokabeln vollständig an. Danach kannst du den Wortschatz überprüfen.');return}if(!s.ready()){alert(title==='Writing'||title==='Viewing'?'Bitte gib zuerst mindestens acht Wörter ein.':'Bitte beantworte zuerst alle Teilaufgaben.');return}
+function updateWeakTopics(title,items,attempt){if(!isProgressSession(currentSession.mode)||attempt!==1)return;const node=document.querySelector(`[data-section="${title}"]`);const hasHint=!!(node&&node.querySelector('.help-used:not(.hidden)'));const vocabHint=title==='Vocabulary'&&Object.keys(currentSession.hintUsed).some(id=>id.indexOf('vocab')===0);const needsReview=items.some(x=>!x.correct||x.firstCorrect===false)||hasHint||vocabHint;const q=getWeakTopics();const idx=q.findIndex(x=>x.title===title);if(needsReview){const variant=currentSession.sectionVariants?.[title]??currentSession.variant;const sceneId=title==='Viewing'?currentSession.viewingScene?.id:null;if(idx>=0){q[idx].misses=(q[idx].misses||0)+1;q[idx].variant=variant;q[idx].sceneId=sceneId||q[idx].sceneId||null;q[idx].lastMiss=dateKey;q[idx].dueDate=dueDateFrom(dateKey,3)}else q.push({title,misses:1,variant,sceneId,lastMiss:dateKey,dueDate:dueDateFrom(dateKey,3)})}else if(idx>=0)q.splice(idx,1);saveWeakTopics(q)}
+function evaluateSection(title){const s=sections.find(x=>x.title===title);if(!s||currentSession.results[title])return;if(title==='Vocabulary'){finishVocabularySection();return}if(!s.ready()){alert(title==='Writing'||title==='Viewing'?'Bitte gib zuerst mindestens acht Wörter ein.':'Bitte beantworte zuerst alle Teilaufgaben.');return}
  const quickItems=s.items();if(title==='Reading'&&s.expandQuick?.(quickItems)){saveDraft();return}const n=(currentSession.attempts[title]||0)+1;if(n>3)return;currentSession.attempts[title]=n;const items=s.items();currentSession.lastResults=currentSession.lastResults||{};currentSession.lastResults[title]=items.map(x=>({...x}));const autoItems=s.open?[]:items;const correct=items.filter(x=>x.correct).length,all=items.length;const passed=items.every(x=>x.correct);if(!currentSession.firstResults[title]){const firstItems=title==='Reading'&&currentSession.readingWarmupItems?[...currentSession.readingWarmupItems,...items.filter(x=>!currentSession.readingWarmupItems.some(y=>y.id===x.id))]:items;currentSession.firstResults[title]={items:firstItems.map(x=>({...x})),correct:firstItems.filter(x=>x.correct).length,total:firstItems.length,hintIds:Object.keys(currentSession.hintUsed)}};markResults(title,items,n);updateReviewQueue(items,n);updateWeakTopics(title,items,n);
  const sectionNode=document.querySelector(`[data-section=\"${title}\"]`);const hints=sectionNode?[...sectionNode.querySelectorAll('.help-used:not(.hidden)')].length:items.filter(x=>currentSession.hintUsed[x.id]).length;const result={passed,items:items.map(x=>({...x})),attempts:n,hints,hintItems:Object.keys(currentSession.hintUsed).filter(id=>{const el=$(`unit-${id}`);return el&&el.closest('[data-section]')?.dataset.section===title}),auto:!s.open,open:s.open,firstCorrect:currentSession.firstResults[title].correct,firstTotal:currentSession.firstResults[title].total,finalCorrect:correct,finalTotal:all};
  if(passed){currentSession.results[title]=result;$(`result-${title}`).innerHTML=`<div class="notice"><span class="good">✓ ${s.open?'Selbstkontrolle abgeschlossen':'Alle Teilaufgaben richtig'}</span>${s.open?'<p class="muted">Deine Selbstkontrolle ist vollständig. Der Text selbst wurde nicht automatisch benotet.</p>':''}</div>`;lockSection(title,result)}
@@ -550,76 +564,211 @@ function speak(){
  const voice=getEnglishVoice();if(voice)u.voice=voice;
  window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
 }
-let vocabAudioQueue=[],activeVocabAudioIndex=null,vocabAudioSequence=0;
+let activeVocabAudioIndex=null,vocabAudioSequence=0;
 function updateVocabularyAudioStatus(index,message,kind='muted'){
  const status=$('vocab-audio-status-'+index),button=document.querySelector('[data-repeat-vocab="'+index+'"]');
  if(status){status.textContent=message;status.className='audio-status '+kind;}
  if(button)button.disabled=false;
 }
+function updateVocabularyAnswerButton(index){
+ const select=$('vocab-'+index),button=$('checkVocabularyAnswer');
+ const entry=currentSession?.vocab?.[index];
+ if(!select||!button||!entry)return;
+ const isEnDe=(entry.direction||'en-de')==='en-de';
+ button.disabled=!select.value||(isEnDe&&currentSession.vocabAudioPlayedIndex!==index);
+}
 function speakVocabularyAudio(index){
  const entry=currentSession?.vocab?.[index];
- if(!entry||(entry.direction||'en-de')!=='en-de')return;
+ if(!entry||(entry.direction||'en-de')!=='en-de'||index!==currentSession.vocabTaskIndex)return;
  if(!('speechSynthesis'in window)||!('SpeechSynthesisUtterance'in window)){
-  updateVocabularyAudioStatus(index,'Sprachausgabe wird von diesem Browser nicht unterstützt. Bitte einen aktuellen Browser verwenden.','bad');return;
+  updateVocabularyAudioStatus(index,'Sprachausgabe wird von diesem Browser nicht unterstützt. Bitte einen aktuellen Browser verwenden.','bad');
+  return;
  }
- const select=$('vocab-'+index),button=document.querySelector('[data-repeat-vocab="'+index+'"]');
- const sequence=++vocabAudioSequence;activeVocabAudioIndex=index;
- updateVocabularyAudioStatus(index,'Audio wird abgespielt …');
+ const select=$('vocab-'+index),check=$('checkVocabularyAnswer'),button=document.querySelector('[data-repeat-vocab="'+index+'"]');
+ const sequence=++vocabAudioSequence;
+ activeVocabAudioIndex=index;
+ currentSession.vocabAudioPlayedIndex=null;
+ if(select)select.disabled=true;
+ if(check)check.disabled=true;
  if(button)button.disabled=true;
+ updateVocabularyAudioStatus(index,'Audio wird abgespielt …');
+ window.speechSynthesis.cancel();
  const utterance=new SpeechSynthesisUtterance(entry.word.en);
  utterance.lang='en-GB';utterance.rate=.92;
  const voice=getEnglishVoice();if(voice)utterance.voice=voice;
  utterance.onstart=()=>updateVocabularyAudioStatus(index,'Englisches Wort wird vorgespielt …');
  utterance.onend=()=>{
-  if(sequence!==vocabAudioSequence)return;
-  if(select)select.disabled=false;
+  if(sequence!==vocabAudioSequence||!currentSession||currentSession.vocabTaskIndex!==index)return;
+  currentSession.vocabAudioPlayedIndex=index;
   activeVocabAudioIndex=null;
+  if(select)select.disabled=false;
+  updateVocabularyAnswerButton(index);
   updateVocabularyAudioStatus(index,'Audio vollständig abgespielt · Antwort freigegeben.','good');
-  window.setTimeout(playNextVocabularyAudio,120);
+  saveDraft();
  };
  utterance.onerror=(event)=>{
   if(sequence!==vocabAudioSequence)return;
   activeVocabAudioIndex=null;
   const detail=event?.error==='not-allowed'?' Bitte tippe auf „Audio anhören / wiederholen“, um die Wiedergabe zu starten.':' Bitte versuche die Wiedergabe erneut.';
   updateVocabularyAudioStatus(index,'Audio konnte nicht abgespielt werden.'+detail,'bad');
-  window.setTimeout(playNextVocabularyAudio,120);
+  if(select)select.disabled=true;
+  if(check)check.disabled=true;
+  saveDraft();
  };
  window.speechSynthesis.speak(utterance);
- window.setTimeout(()=>{
-  if(sequence===vocabAudioSequence&&activeVocabAudioIndex===index){
-   const status=$('vocab-audio-status-'+index);
-   if(status)status.textContent='Falls nichts zu hören ist, tippe auf „Audio anhören / wiederholen“.';
-   if(button)button.disabled=false;
-  }
- },1400);
 }
-function playNextVocabularyAudio(){
- if(activeVocabAudioIndex!==null||!vocabAudioQueue.length)return;
- const index=vocabAudioQueue.shift();
- speakVocabularyAudio(index);
+function appendVocabularyNextButton(index){
+ const host=$('vocabTaskHost');if(!host)return;
+ let actions=host.querySelector('.vocab-next-actions');
+ if(!actions){actions=document.createElement('div');actions.className='vocab-next-actions actions';host.appendChild(actions);}
+ const button=document.createElement('button');
+ button.type='button';button.className='secondary';
+ button.textContent=index+1<currentSession.vocab.length?'Nächste Vokabel':'Wortschatz abschließen';
+ button.addEventListener('click',()=>{
+  currentSession.vocabTaskIndex=index+1;
+  currentSession.vocabAudioPlayedIndex=null;
+  saveDraft();
+  renderVocabularyTask(index+1);
+ });
+ actions.appendChild(button);
+}
+function renderVocabularyTask(index){
+ if(!currentSession)return;
+ ensureVocabularyFlowState();
+ const host=$('vocabTaskHost');if(!host)return;
+ const total=currentSession.vocab.length;
+ currentSession.vocabTaskIndex=Math.max(0,Math.min(index,total));
+ if(index>=total){
+  host.innerHTML='<div class="notice"><b>Alle '+total+' Vokabeln bearbeitet.</b><p>Die 15 Aufgaben Englisch → Deutsch und die 15 Aufgaben Deutsch → Englisch sind abgeschlossen.</p></div><div class="actions"><button type="button" id="completeVocabulary">Wortschatz abschließen</button></div>';
+  $('completeVocabulary').addEventListener('click',()=>evaluateSection('Vocabulary'));
+  return;
+ }
+ const entry=currentSession.vocab[index],direction=entry.direction||'en-de',isEnDe=direction==='en-de';
+ const number=isEnDe?index+1:index-14;
+ const label=isEnDe?'Englisch → Deutsch · Wort '+number:'Deutsch → Englisch · Wort '+number;
+ const title=isEnDe?'Englisch → Deutsch':'Deutsch → Englisch';
+ const result=currentSession.vocabTaskResults[index];
+ const attempt=currentSession.vocabTaskAttempts[index]||0;
+ const wordPrompt=isEnDe?'<div class="task-prompt" lang="en">'+esc(entry.word.en)+'</div>':'<div class="task-prompt" lang="de">'+esc(entry.word.de)+'</div>';
+ const note=(entry.isReview?'Wiederholung nach Fehler / Hinweis':entry.word.page?'Schulbuch · Seite '+entry.word.page:entry.word.pool==='grade7'?'Grundwortschatz':'Wortschatz Plus')+' · '+esc(entry.word.section||'');
+ const help=isEnDe?'Höre das englische Wort vollständig an. Wähle danach die passende deutsche Bedeutung. Du kannst die Aussprache beliebig oft wiederholen.':'Übersetze die deutsche Vorgabe ins Englische. In dieser Richtung wird kein Audio abgespielt.';
+ const options=entry.options.map(o=>'<option value="'+esc(o.en)+'">'+esc(isEnDe?o.de:o.en)+'</option>').join('');
+ const audio=isEnDe?'<div class="audio-row"><button type="button" class="secondary" data-repeat-vocab="'+index+'">🔊 Audio anhören / wiederholen</button><span class="audio-status" id="vocab-audio-status-'+index+'" role="status">Wort wird vorbereitet …</span></div>':'<p class="audio-note">Deutsch → Englisch · ohne Audioausgabe</p>';
+ const prompt=isEnDe?'Choose the German meaning …':'Choose the English word …';
+ const selected=(currentSession.vocabCurrentAnswers||{})[index]||'';
+ const body=wordPrompt+audio+'<select id="vocab-'+index+'" aria-label="Antwort für '+esc(label)+'"><option value="">'+prompt+'</option>'+options+'</select><span class="word-note">'+note+'</span><div class="vocab-task-actions"><button type="button" id="checkVocabularyAnswer" '+(isEnDe?'disabled':'')+'>Antwort prüfen</button><span class="vocab-answer-state" id="vocabAttemptState">Versuche: '+attempt+'/3</span></div>';
+ host.innerHTML='<div class="vocab-flow-head"><span class="vocab-step-count">Wort '+(index+1)+' von '+total+'</span><span class="vocab-step-direction">'+title+'</span></div>'+unit('vocab'+index,label,help,body);
+ const select=$('vocab-'+index),check=$('checkVocabularyAnswer');
+ select.value=selected;
+ if(isEnDe){select.disabled=true;check.disabled=true;}else{check.disabled=!select.value;}
+ select.addEventListener('change',()=>{
+  currentSession.vocabCurrentAnswers[index]=select.value;
+  updateVocabularyAnswerButton(index);
+  saveDraft();
+ });
+ check.addEventListener('click',()=>checkVocabularyAnswer(index));
+ if(result){
+  select.disabled=true;check.disabled=true;
+  const feedback=$('unit-vocab'+index).querySelector('.item-feedback');
+  feedback.classList.remove('hidden');
+  feedback.innerHTML=result.correct?'<span class="good">✓ Richtig</span>':'<span class="bad">✗ Lösung: '+esc(result.expected)+'</span>';
+  appendVocabularyNextButton(index);
+  return;
+ }
+ if(isEnDe){
+  currentSession.vocabAudioPlayedIndex=null;
+  speakVocabularyAudio(index);
+ }
+ saveDraft();
+}
+function checkVocabularyAnswer(index){
+ if(!currentSession||index!==currentSession.vocabTaskIndex)return;
+ ensureVocabularyFlowState();
+ const entry=currentSession.vocab[index];if(!entry)return;
+ const select=$('vocab-'+index),check=$('checkVocabularyAnswer');
+ if(!select||!select.value)return;
+ const isEnDe=(entry.direction||'en-de')==='en-de';
+ if(isEnDe&&currentSession.vocabAudioPlayedIndex!==index){
+  $('vocabAttemptState').textContent='Bitte höre das englische Wort zuerst vollständig an.';
+  return;
+ }
+ const id='vocab'+index,direction=isEnDe?'en-de':'de-en';
+ const attempt=(currentSession.vocabTaskAttempts[index]||0)+1;
+ currentSession.vocabTaskAttempts[index]=attempt;
+ const response=select.value,correct=response===entry.word.en;
+ const answer=select.selectedOptions[0]?.textContent||'Keine Auswahl';
+ const label=isEnDe?entry.word.en+' – Bedeutung':entry.word.de+' – Englisch';
+ const item={id,direction,label,correct,firstCorrect:correct,expected:isEnDe?entry.word.de:entry.word.en,answer,feedback:isEnDe?entry.word.en+' = '+entry.word.de:entry.word.de+' = '+entry.word.en,attempts:attempt};
+ currentSession.vocabCurrentAnswers[index]=response;
+ if(!currentSession.vocabTaskFirstResults[index]){
+  currentSession.vocabTaskFirstResults[index]={...item};
+  if(currentSession.hintUsed[id]&&!currentSession.vocabTaskFirstHintIds.includes(id))currentSession.vocabTaskFirstHintIds.push(id);
+ }else{
+  item.firstCorrect=currentSession.vocabTaskFirstResults[index].correct;
+ }
+ const unitNode=$('unit-vocab'+index),feedback=unitNode?.querySelector('.item-feedback');
+ if(correct||attempt>=3){
+  currentSession.vocabTaskResults[index]={...item};
+  select.disabled=true;check.disabled=true;
+  if(feedback){feedback.classList.remove('hidden');feedback.innerHTML=correct?'<span class="good">✓ Richtig!</span><div class="muted">Gut gemacht. Weiter zur nächsten Vokabel.</div>':'<span class="bad">✗ Noch nicht richtig.</span><div class="muted"><b>Richtige Lösung:</b> '+esc(item.expected)+'</div>';}
+  unitNode?.classList.toggle('is-right',correct);unitNode?.classList.toggle('is-wrong',!correct);
+  appendVocabularyNextButton(index);
+ }else{
+  select.value='';
+  currentSession.vocabCurrentAnswers[index]='';
+  check.disabled=true;
+  if(feedback){feedback.classList.remove('hidden');feedback.innerHTML='<span class="bad">Noch nicht richtig. Versuche es erneut.</span>';}
+  $('vocabAttemptState').textContent='Versuche: '+attempt+'/3';
+ }
+ saveDraft();
+}
+function finishVocabularySection(){
+ const section=sections.find(s=>s.title==='Vocabulary');
+ if(!section||currentSession.results.Vocabulary)return;
+ if(!section.ready()){
+  $('result-Vocabulary').innerHTML='<div class="notice warning">Bitte bearbeite jede Vokabel einzeln und schließe danach den Wortschatz ab.</div>';
+  return;
+ }
+ const items=section.items(),firstItems=currentSession.vocabTaskFirstResults.filter(Boolean);
+ const hintIds=currentSession.vocabTaskFirstHintIds.slice();
+ const first={items:firstItems.map(x=>({...x})),correct:firstItems.filter(x=>x.correct).length,total:firstItems.length,hintIds};
+ currentSession.firstResults.Vocabulary=first;
+ currentSession.lastResults=currentSession.lastResults||{};
+ currentSession.lastResults.Vocabulary=items.map(x=>({...x}));
+ const finalCorrect=items.filter(x=>x.correct).length;
+ const firstCorrect=first.items.filter(x=>x.correct&&firstAttemptUnassisted('Vocabulary',first,x.id)).length;
+ const tries=Object.values(currentSession.vocabTaskAttempts).reduce((sum,n)=>sum+n,0);
+ const hintItems=Object.keys(currentSession.hintUsed).filter(id=>id.indexOf('vocab')===0);
+ currentSession.attempts.Vocabulary=0;
+ updateReviewQueue(items,1);
+ updateWeakTopics('Vocabulary',items,1);
+ const result={passed:items.every(x=>x.correct),items:items.map(x=>({...x})),attempts:tries,hints:hintItems.length,hintItems,auto:true,open:false,firstCorrect,firstTotal:items.length,finalCorrect,finalTotal:items.length};
+ currentSession.results.Vocabulary=result;
+ $('result-Vocabulary').innerHTML='<div class="notice"><b>✓ Wortschatz abgeschlossen</b><p>Erster Versuch ohne Hinweise: '+firstCorrect+'/'+items.length+'. Endstand: '+finalCorrect+'/'+items.length+'.</p></div>';
+ lockSection('Vocabulary',result);
+ updateProgress();saveDraft();
 }
 function startVocabularyAudioQueue(){
- vocabAudioQueue=[];
  activeVocabAudioIndex=null;
  if(!currentSession?.vocab)return;
- currentSession.vocab.forEach((entry,index)=>{
-  if((entry.direction||'en-de')==='en-de'&&$('vocab-'+index)?.disabled)vocabAudioQueue.push(index);
- });
- playNextVocabularyAudio();
+ ensureVocabularyFlowState();
+ if(currentSession.results?.Vocabulary){
+  const host=$('vocabTaskHost');
+  if(host)host.innerHTML='<div class="notice">Der Wortschatzbereich wurde bereits abgeschlossen.</div>';
+  return;
+ }
+ renderVocabularyTask(currentSession.vocabTaskIndex||0);
 }
 function repeatVocabularyAudio(index){
- if(!currentSession?.vocab?.[index])return;
+ if(index!==currentSession?.vocabTaskIndex||currentSession.vocabTaskResults?.[index])return;
  if(activeVocabAudioIndex!==null){
-  const interrupted=activeVocabAudioIndex;
-  if(interrupted!==index&&$('vocab-'+interrupted)?.disabled&&!vocabAudioQueue.includes(interrupted))vocabAudioQueue.unshift(interrupted);
   window.speechSynthesis.cancel();vocabAudioSequence++;activeVocabAudioIndex=null;
  }
- vocabAudioQueue=vocabAudioQueue.filter(x=>x!==index);
  speakVocabularyAudio(index);
 }
-function finishSession(){if(Object.keys(currentSession.results).length!==7)return;const graded=sections.filter(s=>!s.open);const firstCorrect=graded.reduce((n,s)=>n+(currentSession.firstResults[s.title]?.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,currentSession.firstResults[s.title],x.id)).length||0),0);const firstTotal=graded.reduce((n,s)=>n+(currentSession.firstResults[s.title]?.total||0),0);const finalCorrect=graded.reduce((n,s)=>n+(currentSession.results[s.title]?.items.filter(x=>x.correct).length||0),0);const finalTotal=graded.reduce((n,s)=>n+(currentSession.results[s.title]?.finalTotal||0),0);const hints=Object.keys(currentSession.hintUsed).length;const attempts=Object.values(currentSession.attempts).reduce((a,b)=>a+b,0);const areaStats={};sections.forEach(s=>{const r=currentSession.results[s.title],f=currentSession.firstResults[s.title];areaStats[s.title]={firstAccuracy:s.open?null:(f?Math.round(f.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,f,x.id)).length/f.total*100):null),firstUnassistedCorrect:s.open?null:(f?f.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,f,x.id)).length:0),firstCorrect:f?.correct??null,firstTotal:f?.total??0,finalCorrect:r?.finalCorrect??null,finalTotal:r?.finalTotal??0,attempts:r?.attempts??0,hints:r?.hints??0,open:s.open,passed:r?.passed??false}});
+function finishSession(){if(Object.keys(currentSession.results).length!==7)return;const graded=sections.filter(s=>!s.open);const firstCorrect=graded.reduce((n,s)=>n+(currentSession.firstResults[s.title]?.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,currentSession.firstResults[s.title],x.id)).length||0),0);const firstTotal=graded.reduce((n,s)=>n+(currentSession.firstResults[s.title]?.total||0),0);const finalCorrect=graded.reduce((n,s)=>n+(currentSession.results[s.title]?.items.filter(x=>x.correct).length||0),0);const finalTotal=graded.reduce((n,s)=>n+(currentSession.results[s.title]?.finalTotal||0),0);const hints=Object.keys(currentSession.hintUsed).length;const attempts=Object.values(currentSession.attempts).reduce((a,b)=>a+b,0)+Object.values(currentSession.vocabTaskAttempts||{}).reduce((a,b)=>a+b,0);const areaStats={};sections.forEach(s=>{const r=currentSession.results[s.title],f=currentSession.firstResults[s.title];areaStats[s.title]={firstAccuracy:s.open?null:(f?Math.round(f.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,f,x.id)).length/f.total*100):null),firstUnassistedCorrect:s.open?null:(f?f.items.filter(x=>x.correct&&firstAttemptUnassisted(s.title,f,x.id)).length:0),firstCorrect:f?.correct??null,firstTotal:f?.total??0,finalCorrect:r?.finalCorrect??null,finalTotal:r?.finalTotal??0,attempts:r?.attempts??0,hints:r?.hints??0,open:s.open,passed:r?.passed??false}});
  const result={date:currentSession.date,mode:currentSession.mode,unlockedSchoolPages:getUnlockedSchoolPages(),newlyUnlockedSchoolPages:getPendingSchoolPages(),vocabularyPages:[...new Set(currentSession.vocab.map(x=>x.word.page).filter(Boolean))].sort((a,b)=>a-b),viewingScene:currentSession.viewingScene?.title||'',openTexts:{writing:$('writing')?.value||'',viewing:$('viewing')?.value||''},minutes:Math.max(1,Math.round((Date.now()-currentSession.startedAt)/60000)),firstScore:firstCorrect,firstTotal,firstPercent:firstTotal?Math.round(firstCorrect/firstTotal*100):0,finalScore:finalCorrect,finalTotal,finalPercent:finalTotal?Math.round(finalCorrect/finalTotal*100):0,hints,attemptCount:attempts,completed:7,answers:currentSession.results,firstResults:currentSession.firstResults,areaStats,sessionIndex:currentSession.sessionIndex};rememberViewingScene(currentSession.viewingScene?.id);rememberVocabulary();const completedMode=currentSession.mode;const h=getHistory();h.push(result);localStorage.setItem(HISTORY_KEY,JSON.stringify(h));localStorage.removeItem(DRAFT_KEY);if(isProgressSession(completedMode))localStorage.removeItem(SCHOOL_PENDING_KEY);currentSession=null;renderReport(result);renderHistory();}
-function renderReport(r){$('report').dataset.reportDate=r.date;$('mainNav').classList.add('hidden');document.querySelectorAll('[data-app-view]').forEach(el=>el.classList.add('hidden'));$('lesson').classList.add('hidden');$('report').classList.remove('hidden');$('progressCard').classList.add('hidden');$('historyCard').classList.add('hidden');const rows=sections.map(s=>{const a=r.answers[s.title];const first=r.firstResults[s.title];const label=s.open?(a.passed?'Selbstkontrolle vollständig':'Selbstkontrolle unvollständig – nicht automatisch bewertet'):a.passed?'Alle Prüfpunkte richtig':'Nach 3 Versuchen Lösung angesehen';const firstUnassisted=r.areaStats?.[s.title]?.firstUnassistedCorrect??0;return `<div class="report-task"><b>${s.title}</b><div><span class="report-chip ${a.passed?'ok':'warn'}">${esc(label)}</span><span class="report-chip">${a.attempts}/3 Versuche</span><span class="report-chip">${a.hints} Hinweise</span></div>${a.auto?`<p class="muted">Erster Überprüfungsversuch ohne Hinweis: ${firstUnassisted}/${first?.total??0} richtig. Endstand: ${a.finalCorrect}/${a.finalTotal} richtig.</p>`:'<p class="muted">Deine Textantwort wurde dokumentiert, aber nicht automatisch sprachlich benotet. Die Checkliste ist eine Selbstkontrolle.</p>'}${s.title==='Writing'?`<p><b>Geschriebener Text:</b><br>${esc(r.openTexts?.writing||'')}</p>`:s.title==='Viewing'?`<p><b>Bildmotiv:</b> ${esc(r.viewingScene||'')}</p><p><b>Bildbeschreibung:</b><br>${esc(r.openTexts?.viewing||'')}</p>`:''}<ul class="feedback-list">${a.items.map(x=>`<li>${x.correct?'✓':'✗'} <b>${esc(x.label)}:</b> ${esc(x.answer)}${a.hintItems?.includes(x.id)?' <span class=\"report-chip warn\">Hinweis benutzt</span>':''}${!x.correct&&x.expected?` · <span class="muted">Lösung / Prüfkriterium: ${esc(x.expected)}</span>`:''}${r.firstResults[s.title]?.items.find(y=>y.id===x.id)&&!r.firstResults[s.title].items.find(y=>y.id===x.id).correct?' <span class="report-chip warn">im ersten Versuch falsch</span>':''}</li>`).join('')}</ul></div>`}).join('');const assisted=r.mode==='guided',practice=r.mode==='practice',sessionLabel=practice?'Zusätzliches Training (voll gewertet)':assisted?'Gemeinsam / mit Unterstützung':'Eigenständig';$('reportBody').innerHTML=`<p><b>Date:</b> ${esc(r.date)} · <b>Duration:</b> ${r.minutes} minutes · <b>Session:</b> ${sessionLabel}</p><p><b>Freigegebene Schulbuchseiten:</b> ${esc((r.unlockedSchoolPages||[]).join(', '))} · <b>Vokabelseiten in dieser Einheit:</b> ${esc((r.vocabularyPages||[]).join(', ')||'–')}</p><div class="notice"><b>Neu hinzugefügte Schulbuchseiten seit dem letzten Bericht:</b> ${r.newlyUnlockedSchoolPages?.length?esc(r.newlyUnlockedSchoolPages.join(', ')):'Keine neuen Seiten'}</div>${assisted?'<div class="notice warning">Diese Einheit wurde gemeinsam bearbeitet. Sie wird dokumentiert, aber nicht als individueller Lernstand gewertet.</div>':practice?'<div class="notice">Zusätzliches Training: Diese Einheit wird vollständig wie ein reguläres Training gewertet. Fehler und Hinweise fließen in die reguläre Wiederholungsplanung ein.</div><div class="score">Ergebnis: ${r.firstScore}/${r.firstTotal} · ${r.firstPercent}%</div><p><b>Erster Versuch ohne Hinweise:</b> ${r.firstScore} von ${r.firstTotal}. <b>Endstand:</b> ${r.finalScore}/${r.finalTotal} (${r.finalPercent}%).</p>':`<div class="score">${r.firstScore}/${r.firstTotal} · ${r.firstPercent}%</div><p><b>Erster Versuch ohne Hinweise:</b> ${r.firstScore} von ${r.firstTotal}. <b>Endstand:</b> ${r.finalScore}/${r.finalTotal} (${r.finalPercent}%).</p>`}<p><b>Hinweise verwendet:</b> ${r.hints} · <b>Überprüfungen insgesamt:</b> ${r.attemptCount}</p><h3>Ergebnisse nach Lernbereich</h3>${rows}<h3>Was wiederholt werden sollte</h3><p>${r.mode==='practice'?'Fehler und Hinweise aus diesem zusätzlichen Training werden wie bei regulären Einheiten für die Wiederholung berücksichtigt.':r.hints?'Aufgaben mit geöffnetem Hinweis werden in der nächsten Einheit als Unterstützungsbedarf berücksichtigt. ':''}${r.mode==='guided'?'Aus dieser gemeinsam bearbeiteten Einheit werden keine individuellen Wiederholungsaufgaben abgeleitet.':r.answers.Vocabulary.items.filter(x=>!x.correct).length?'Fehler beim Wortschatz wurden für die Wiederholung vorgemerkt.':'Keine endgültig falschen Vokabelantworten in dieser Einheit.'}</p><p class="muted">Erstversuche und Endstand werden getrennt geführt. Bei Writing und Viewing bewertet die Website nur die angekreuzte Selbstkontrolle, nicht die sprachliche Qualität des Textes.</p>`;}
+function renderReport(r){$('report').dataset.reportDate=r.date;$('mainNav').classList.add('hidden');document.querySelectorAll('[data-app-view]').forEach(el=>el.classList.add('hidden'));$('lesson').classList.add('hidden');$('report').classList.remove('hidden');$('progressCard').classList.add('hidden');$('historyCard').classList.add('hidden');const rows=sections.map(s=>{const a=r.answers[s.title];const first=r.firstResults[s.title];const label=s.title==='Vocabulary'?'30 Vokabeln einzeln bearbeitet':s.open?(a.passed?'Selbstkontrolle vollständig':'Selbstkontrolle unvollständig – nicht automatisch bewertet'):a.passed?'Alle Prüfpunkte richtig':'Nach 3 Versuchen Lösung angesehen';const firstUnassisted=r.areaStats?.[s.title]?.firstUnassistedCorrect??0;return `<div class="report-task"><b>${s.title}</b><div><span class="report-chip ${a.passed?'ok':'warn'}">${esc(label)}</span><span class="report-chip">${s.title==='Vocabulary'?a.items.length+' Einzelaufgaben · '+a.attempts+' Prüfversuche':a.attempts+'/3 Versuche'}</span><span class="report-chip">${a.hints} Hinweise</span></div>${a.auto?`<p class="muted">Erster Überprüfungsversuch ohne Hinweis: ${firstUnassisted}/${first?.total??0} richtig. Endstand: ${a.finalCorrect}/${a.finalTotal} richtig.</p>`:'<p class="muted">Deine Textantwort wurde dokumentiert, aber nicht automatisch sprachlich benotet. Die Checkliste ist eine Selbstkontrolle.</p>'}${s.title==='Writing'?`<p><b>Geschriebener Text:</b><br>${esc(r.openTexts?.writing||'')}</p>`:s.title==='Viewing'?`<p><b>Bildmotiv:</b> ${esc(r.viewingScene||'')}</p><p><b>Bildbeschreibung:</b><br>${esc(r.openTexts?.viewing||'')}</p>`:''}<ul class="feedback-list">${a.items.map(x=>`<li>${x.correct?'✓':'✗'} <b>${esc(x.label)}:</b> ${esc(x.answer)}${a.hintItems?.includes(x.id)?' <span class=\"report-chip warn\">Hinweis benutzt</span>':''}${!x.correct&&x.expected?` · <span class="muted">Lösung / Prüfkriterium: ${esc(x.expected)}</span>`:''}${r.firstResults[s.title]?.items.find(y=>y.id===x.id)&&!r.firstResults[s.title].items.find(y=>y.id===x.id).correct?' <span class="report-chip warn">im ersten Versuch falsch</span>':''}</li>`).join('')}</ul></div>`}).join('');const assisted=r.mode==='guided',practice=r.mode==='practice',sessionLabel=practice?'Zusätzliches Training (voll gewertet)':assisted?'Gemeinsam / mit Unterstützung':'Eigenständig';$('reportBody').innerHTML=`<p><b>Date:</b> ${esc(r.date)} · <b>Duration:</b> ${r.minutes} minutes · <b>Session:</b> ${sessionLabel}</p><p><b>Freigegebene Schulbuchseiten:</b> ${esc((r.unlockedSchoolPages||[]).join(', '))} · <b>Vokabelseiten in dieser Einheit:</b> ${esc((r.vocabularyPages||[]).join(', ')||'–')}</p><div class="notice"><b>Neu hinzugefügte Schulbuchseiten seit dem letzten Bericht:</b> ${r.newlyUnlockedSchoolPages?.length?esc(r.newlyUnlockedSchoolPages.join(', ')):'Keine neuen Seiten'}</div>${assisted?'<div class="notice warning">Diese Einheit wurde gemeinsam bearbeitet. Sie wird dokumentiert, aber nicht als individueller Lernstand gewertet.</div>':practice?'<div class="notice">Zusätzliches Training: Diese Einheit wird vollständig wie ein reguläres Training gewertet. Fehler und Hinweise fließen in die reguläre Wiederholungsplanung ein.</div><div class="score">Ergebnis: ${r.firstScore}/${r.firstTotal} · ${r.firstPercent}%</div><p><b>Erster Versuch ohne Hinweise:</b> ${r.firstScore} von ${r.firstTotal}. <b>Endstand:</b> ${r.finalScore}/${r.finalTotal} (${r.finalPercent}%).</p>':`<div class="score">${r.firstScore}/${r.firstTotal} · ${r.firstPercent}%</div><p><b>Erster Versuch ohne Hinweise:</b> ${r.firstScore} von ${r.firstTotal}. <b>Endstand:</b> ${r.finalScore}/${r.finalTotal} (${r.finalPercent}%).</p>`}<p><b>Hinweise verwendet:</b> ${r.hints} · <b>Überprüfungen insgesamt:</b> ${r.attemptCount}</p><h3>Ergebnisse nach Lernbereich</h3>${rows}<h3>Was wiederholt werden sollte</h3><p>${r.mode==='practice'?'Fehler und Hinweise aus diesem zusätzlichen Training werden wie bei regulären Einheiten für die Wiederholung berücksichtigt.':r.hints?'Aufgaben mit geöffnetem Hinweis werden in der nächsten Einheit als Unterstützungsbedarf berücksichtigt. ':''}${r.mode==='guided'?'Aus dieser gemeinsam bearbeiteten Einheit werden keine individuellen Wiederholungsaufgaben abgeleitet.':r.answers.Vocabulary.items.filter(x=>!x.correct).length?'Fehler beim Wortschatz wurden für die Wiederholung vorgemerkt.':'Keine endgültig falschen Vokabelantworten in dieser Einheit.'}</p><p class="muted">Erstversuche und Endstand werden getrennt geführt. Bei Writing und Viewing bewertet die Website nur die angekreuzte Selbstkontrolle, nicht die sprachliche Qualität des Textes.</p>`;}
 function tryRestore(){const d=readJSON(DRAFT_KEY,null);if(!d?.session||!d.lessonVisible)return;draft=d;$('resumeBox').classList.remove('hidden');$('resumeBox').innerHTML=`<b>Offene Einheit gefunden</b><p class="muted">Begonnen am ${new Date(d.session.startedAt).toLocaleString('de-DE')}. Du kannst sie an der letzten Stelle fortsetzen.</p><button id="resumeBtn" class="secondary">Training fortsetzen</button> <button id="discardBtn" class="tertiary">Neue Einheit beginnen</button>`;$('resumeBtn').onclick=()=>{currentSession=d.session;started=currentSession.startedAt;build(true);};$('discardBtn').onclick=()=>{if(confirm('Die gespeicherte Zwischeneinheit wirklich verwerfen?')){localStorage.removeItem(DRAFT_KEY);draft=null;$('resumeBox').classList.add('hidden')}}}
 $('mainNav').addEventListener('click',e=>{const button=e.target.closest('[data-app-tab]');if(button)showAppView(button.dataset.appTab);});
 $('vocabSearch').addEventListener('input',renderVocabularyLibrary);
