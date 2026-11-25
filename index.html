@@ -336,7 +336,7 @@ function ensureVocabularyFlowState(){
  if(!Array.isArray(currentSession.vocabTaskFirstHintIds))currentSession.vocabTaskFirstHintIds=[];
  if(!currentSession.vocabCurrentAnswers||typeof currentSession.vocabCurrentAnswers!=='object'){
   currentSession.vocabCurrentAnswers={};
-  (currentSession.inputValues||[]).forEach(x=>{if(x.id&&/^vocab-\\d+$/.test(x.id))currentSession.vocabCurrentAnswers[Number(x.id.slice(6))]=x.value||'';});
+  (currentSession.inputValues||[]).forEach(x=>{if(x.id&&/^vocab-\d+$/.test(x.id))currentSession.vocabCurrentAnswers[Number(x.id.slice(6))]=x.value||'';});
  }
  if(!Number.isInteger(currentSession.vocabTaskIndex)||currentSession.vocabTaskIndex<0)currentSession.vocabTaskIndex=0;
  if(currentSession.vocabTaskIndex>total)currentSession.vocabTaskIndex=total;
