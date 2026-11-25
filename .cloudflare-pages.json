@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "project": "English Training v4.0",
+  "hosting": {
+    "production": {
+      "provider": "Cloudflare Pages",
+      "project": "english-learning-grade7",
+      "branch": "main",
+      "output_directory": "."
+    },
+    "test": {
+      "provider": "Cloudflare Pages",
+      "project": "english-learning-grade7-test",
+      "branch": "main",
+      "output_directory": "test"
+    }
+  },
+  "note": "Hosting metadata only; no application files, learning rules, or production functionality changed."
+}
