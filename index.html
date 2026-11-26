@@ -113,6 +113,8 @@ const HISTORY_KEY='englishTrainingHistory',DRAFT_KEY='englishTrainingDraft',REPO
 const REPORT_SOURCE="English Training – Grade 7";
 const REPORT_TEST_MODE=false,REPORT_VERSION="4.0";
 let isFlushingReports=false;
+let reportRetryTimer=null;
+function scheduleReportRetry(){if(reportRetryTimer!==null)return;reportRetryTimer=window.setTimeout(()=>{reportRetryTimer=null;flushPendingReports()},30000)}
 
 function createReportId(){
  if(window.crypto?.randomUUID)return window.crypto.randomUUID();
@@ -159,7 +161,8 @@ async function flushPendingReports(){
     updateStoredReportTransfer(payload.reportId,{status:'uploaded',uploadedAt:new Date().toISOString()});
     setReportTransferStatus(payload.reportId,'uploaded','Der JSON-Bericht wurde automatisch übertragen und bestätigt. Für die E-Mail muss nur noch die PDF-Datei angehängt werden.');
    }catch(error){
-    setReportTransferStatus(payload.reportId,'pending','Die JSON-Übertragung ist noch nicht bestätigt. Der Bericht bleibt lokal gespeichert und wird automatisch erneut versucht. Die E-Mail enthält vorsorglich weiterhin den JSON-Bericht.');
+    setReportTransferStatus(payload.reportId,'pending','Die JSON-Übertragung ist noch nicht bestätigt. Der Bericht bleibt lokal gespeichert; ein erneuter Versuch erfolgt automatisch. Die E-Mail enthält vorsorglich weiterhin den JSON-Bericht.');
+    scheduleReportRetry();
     break;
    }
   }
