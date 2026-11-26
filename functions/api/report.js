@@ -87,7 +87,7 @@ function isValidReportPayload(payload) {
 
 export async function onRequestPost({ request, env }) {
   const origin = request.headers.get("Origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  if (!origin || origin !== new URL(request.url).origin) {
     return json({ ok: false, error: "origin_not_allowed" }, 403);
   }
 
