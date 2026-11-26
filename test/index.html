@@ -61,6 +61,7 @@
   <button type="button" class="tab" data-app-tab="settings">Einstellungen</button>
 </nav>
 <section class="card" id="welcome" data-app-view="home"><h2>Welcome!</h2><p>Du arbeitest jede Einheit eigenständig. Öffne bei Bedarf das Info-Symbol ⓘ für eine kurze Erklärung oder einen Hinweis. Hinweise werden als Unterstützung dokumentiert.</p><p class="muted" id="availability">Die Lerninhalte werden geladen …</p>
+<div id="homeReportTransferStatus" class="notice hidden" role="status" aria-live="polite"></div>
 <div class="notice">Arbeite alle Aufgaben selbstständig. Nutze die Info-Symbole nur, wenn du Hilfe bei der Aufgabenstellung brauchst.</div>
 <div class="page-panel"><h3>Schulbuchfortschritt</h3><p>Bereits freigeschaltet: <b id="schoolPageCurrent">206–213</b>.</p><p class="muted">Wähle neue Seiten aus, sobald sie in der Schule behandelt wurden. Eine Freigabe gilt dauerhaft und kann nicht zurückgenommen werden.</p><div id="schoolPageChoices" class="page-choices"></div><p class="muted" id="schoolPageStatus"></p></div>
 <div id="resumeBox" class="resume-box hidden"></div><div class="progress"><div id="bar"></div></div><p class="muted" id="count">0 von 7 Bereichen abgeschlossen</p><button id="start" disabled>Reguläres Training starten</button><p class="muted">Reguläres Training findet nur Montag, Mittwoch, Freitag und Sonntag statt. Zusätzliches Training ist jederzeit möglich. Alle Testdaten bleiben vollständig von der produktiven Website getrennt.</p><div class="actions" style="margin-top:10px"><button id="startPractice" type="button" class="secondary">Zusätzliches Training!</button></div><p class="muted">Zusätzliche Einheiten sind jederzeit möglich und werden vollständig wie reguläre Trainings gewertet – einschließlich Lernfortschritt und Fehler-Wiederholung.</p></section>
@@ -128,12 +129,21 @@ function createReportId(){
 function getPendingReports(){const q=readJSON(REPORT_QUEUE_KEY,[]);return Array.isArray(q)?q:[]}
 function savePendingReports(q){localStorage.setItem(REPORT_QUEUE_KEY,JSON.stringify(q))}
 function setReportTransferStatus(reportId,state,message){
- const box=$('reportTransferStatus');if(!box)return;
- const activeId=$('report').dataset.reportId;
- if(reportId&&activeId&&reportId!==activeId)return;
- box.classList.remove('hidden','warning','success');
- box.classList.add(state==='uploaded'?'success':'warning');
- box.textContent=message;
+ const box=$('reportTransferStatus');
+ if(box){
+  const activeId=$('report').dataset.reportId;
+  if(!reportId||!activeId||reportId===activeId){
+   box.classList.remove('hidden','warning','success');
+   box.classList.add(state==='uploaded'?'success':'warning');
+   box.textContent=message;
+  }
+ }
+ const homeBox=$('homeReportTransferStatus');
+ if(homeBox){
+  homeBox.classList.remove('hidden','warning','success');
+  homeBox.classList.add(state==='uploaded'?'success':'warning');
+  homeBox.textContent=message;
+ }
 }
 function updateStoredReportTransfer(reportId,details){
  const history=getHistory(),item=history.find(x=>x.reportId===reportId);
@@ -151,21 +161,31 @@ async function flushPendingReports(){
  isFlushingReports=true;
  try{
   for(const payload of pending){
+   setReportTransferStatus(payload.reportId,'pending','Ein gespeicherter JSON-Bericht wird erneut übertragen …');
    try{
     const response=await fetch('/api/report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const result=await response.json().catch(()=>null);
     if(!response.ok||!result?.ok||result.reportId!==payload.reportId){
      if(response.status===503||result?.error==='report_ingest_not_configured'){
-      setReportTransferStatus(payload.reportId,'pending','Die automatische JSON-Übertragung ist noch nicht vollständig eingerichtet. Der Bericht bleibt lokal gesichert; bis zur Aktivierung enthält die E-Mail vorsorglich weiterhin den JSON-Bericht.');
+      setReportTransferStatus(payload.reportId,'pending','JSON-Übertragung noch nicht eingerichtet ('+(result?.error||'HTTP '+response.status)+'). Bericht bleibt lokal gesichert; erneuter Versuch folgt automatisch.');
+      scheduleReportRetry();
       break;
      }
-     throw new Error(result?.error||('HTTP '+response.status));
+     const details=[
+      result?.error||('HTTP '+response.status),
+      result?.upstreamError?('Google: '+result.upstreamError):'',
+      result?.upstreamStatus?('HTTP Google '+result.upstreamStatus):'',
+      result?.upstreamContentType||'',
+      result?.upstreamRedirected?'Google-Weiterleitung erkannt':''
+     ].filter(Boolean).join(' · ');
+     throw new Error(details||'keine gültige Bestätigung erhalten');
     }
     savePendingReports(getPendingReports().filter(x=>x.reportId!==payload.reportId));
     updateStoredReportTransfer(payload.reportId,{status:'uploaded',uploadedAt:new Date().toISOString()});
     setReportTransferStatus(payload.reportId,'uploaded','Der JSON-Bericht wurde automatisch übertragen und bestätigt. Für die E-Mail muss nur noch die PDF-Datei angehängt werden.');
    }catch(error){
-    setReportTransferStatus(payload.reportId,'pending','Die JSON-Übertragung ist noch nicht bestätigt. Der Bericht bleibt lokal gespeichert; ein erneuter Versuch erfolgt automatisch. Die E-Mail enthält vorsorglich weiterhin den JSON-Bericht.');
+    const reason=String(error?.message||error||'unbekannter Fehler').slice(0,220);
+    setReportTransferStatus(payload.reportId,'pending','JSON-Übertragung nicht bestätigt ('+reason+'). Bericht bleibt lokal gespeichert; automatischer Wiederholungsversuch folgt.');
     scheduleReportRetry();
     break;
    }
