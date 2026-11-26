@@ -127,26 +127,80 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: "report_ingest_not_configured" }, 503);
   }
 
-  try {
-    const upstream = await fetch(env.REPORT_INGEST_URL, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: env.REPORT_INGEST_TOKEN,
-        payload
-      })
-    });
-    const result = await upstream.json().catch(() => null);
-    if (!upstream.ok || !result?.ok || result.reportId !== payload.reportId) {
-      return json({ ok: false, error: "report_storage_failed" }, 502);
+  const delays = [0, 400, 1200];
+  let lastFailure = {
+    code: "unknown_upstream_failure",
+    status: null,
+    contentType: null,
+    redirected: false
+  };
+
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt]) {
+      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
     }
-    return json({
-      ok: true,
-      reportId: payload.reportId,
-      storedAt: result.storedAt || new Date().toISOString()
-    });
-  } catch {
-    return json({ ok: false, error: "report_storage_unavailable" }, 502);
+
+    try {
+      const upstream = await fetch(env.REPORT_INGEST_URL, {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: env.REPORT_INGEST_TOKEN,
+          payload
+        })
+      });
+
+      const contentType = upstream.headers.get("Content-Type") || "";
+      const responseText = await upstream.text();
+      let result = null;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        // Apps Script ContentService normally returns JSON after a redirect.
+      }
+
+      if (upstream.ok && result?.ok && result.reportId === payload.reportId) {
+        return json({
+          ok: true,
+          reportId: payload.reportId,
+          storedAt: result.storedAt || new Date().toISOString()
+        });
+      }
+
+      lastFailure = {
+        code: typeof result?.error === "string"
+          ? result.error
+          : (result ? "invalid_apps_script_response" : "apps_script_non_json_response"),
+        status: upstream.status,
+        contentType: contentType.slice(0, 80),
+        redirected: upstream.redirected
+      };
+
+      const retryable =
+        upstream.status === 404 ||
+        upstream.status === 429 ||
+        upstream.status >= 500 ||
+        lastFailure.code === "busy" ||
+        (upstream.redirected && !result);
+
+      if (!retryable) break;
+    } catch (error) {
+      lastFailure = {
+        code: "apps_script_network_error",
+        status: null,
+        contentType: null,
+        redirected: false
+      };
+    }
   }
+
+  return json({
+    ok: false,
+    error: "report_storage_failed",
+    upstreamError: lastFailure.code,
+    upstreamStatus: lastFailure.status,
+    upstreamContentType: lastFailure.contentType,
+    upstreamRedirected: lastFailure.redirected
+  }, 502);
 }
