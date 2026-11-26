@@ -98,7 +98,7 @@ function doPost(e) {
       const prefix = payload.testMode ? 'TEST_' : '';
       const date = String(payload.report.date || 'undated');
       const filename = prefix + 'EnglishTraining_' + date + '_' + reportId + '.json';
-      file = folder.createFile(filename, jsonText, MimeType.JSON);
+      file = folder.createFile(filename, jsonText, 'application/json');
       props.setProperty(fileProperty, file.getId());
     }
 
