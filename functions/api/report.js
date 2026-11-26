@@ -116,7 +116,9 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: "invalid_json" }, 400);
   }
 
-  const payload = body?.payload;
+  // The browser posts the report object directly. Also accept the wrapped
+  // { payload } shape so older clients and server-side callers remain compatible.
+  const payload = body?.payload && typeof body.payload === "object" ? body.payload : body;
   if (!isValidReportPayload(payload)) {
     return json({ ok: false, error: "invalid_report_payload" }, 400);
   }
