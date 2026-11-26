@@ -181,6 +181,7 @@ function queueReportTransfer(report){
  flushPendingReports();
 }
 window.addEventListener('online',()=>flushPendingReports());
+window.addEventListener('load',()=>flushPendingReports(),{once:true});
 
 const SCHOOL_PAGE_KEY='englishTrainingUnlockedPages',LEGACY_SCHOOL_PAGE_KEY='englishTrainingSchoolPage',SCHOOL_PENDING_KEY='englishTrainingPendingSchoolPages',VOCAB_ROTATION_KEY='englishTrainingVocabRotation';
 const SCHOOLBOOK_UNLOCK_DEFAULT=213,SCHOOLBOOK_LAST_PAGE=229;
